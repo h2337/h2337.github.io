@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tsink - Embedded Time-Series Database for Rust</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container nav-container">
+      <a href="#" class="logo">
+        <img class="logo-icon" src="../logo.svg" alt="tsink logo">
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#performance">Performance</a>
+        <a href="#usage">Usage</a>
+        <a href="#architecture">Architecture</a>
+        <a href="https://github.com/h2337/tsink" class="btn btn-sm btn-outline" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <button class="mobile-toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="grid-lines"></div>
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+    </div>
+    <div class="container hero-content">
+      <div class="badge">MIT Licensed &middot; v0.6.1</div>
+      <h1>Embedded Time-Series<br>Database for <span class="gradient-text">Rust</span></h1>
+      <p class="hero-subtitle">High-performance storage with Gorilla compression, thread-safe concurrency, and crash recovery. Embed a full time-series engine directly in your application.</p>
+      <div class="hero-actions">
+        <a href="#usage" class="btn btn-primary btn-lg">Get Started</a>
+        <a href="https://github.com/h2337/tsink" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">~100ns</span>
+          <span class="stat-label">Insert latency</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">1.37B</span>
+          <span class="stat-label">Per data point</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">15M</span>
+          <span class="stat-label">Points/sec batch</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-code-preview">
+      <div class="container">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">main.rs</span>
+          </div>
+          <pre><code><span class="kw">use</span> tsink::{DataPoint, Label, Row, Storage, StorageBuilder};
+
+<span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="kw">let</span> storage = StorageBuilder::new()
+        .with_data_path(<span class="str">"./tsink-data"</span>)
+        .with_partition_duration(Duration::from_secs(<span class="num">3600</span>))
+        .with_retention(Duration::from_secs(<span class="num">7</span> * <span class="num">24</span> * <span class="num">3600</span>))
+        .build()?;
+
+    <span class="kw">let</span> rows = <span class="kw">vec!</span>[
+        Row::with_labels(
+            <span class="str">"cpu_usage"</span>,
+            <span class="kw">vec!</span>[Label::new(<span class="str">"host"</span>, <span class="str">"server-01"</span>)],
+            DataPoint::new(<span class="num">1600000000</span>, <span class="num">45.5</span>),
+        ),
+    ];
+    storage.insert_rows(&amp;rows)?;
+    <span class="comment">// Query with label filtering</span>
+    <span class="kw">let</span> points = storage.select(
+        <span class="str">"cpu_usage"</span>, &amp;[Label::new(<span class="str">"host"</span>, <span class="str">"server-01"</span>)],
+        <span class="num">1600000000</span>, <span class="num">1600000121</span>,
+    )?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="features">
+    <div class="container">
+      <div class="section-header">
+        <h2>Built for performance.<br>Designed for simplicity.</h2>
+        <p>Everything you need for time-series data, nothing you don't.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon icon-compression">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <h3>Gorilla Compression</h3>
+          <p>Facebook's Gorilla algorithm achieves ~1.37 bytes per data point using delta-of-delta timestamps and XOR-based value encoding.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-thread">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3>Thread-Safe Concurrency</h3>
+          <p>Lock-free reads with concurrent writes via configurable worker pools. Built on <code>DashMap</code>, <code>parking_lot</code>, and <code>crossbeam</code>.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-disk">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <h3>Dual Storage Modes</h3>
+          <p>Run fully in-memory for maximum speed or persist to disk with memory-mapped files for zero-copy reads and automatic recovery.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-wal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Write-Ahead Logging</h3>
+          <p>WAL ensures crash recovery with configurable sync modes and buffer sizes. Choose between periodic sync for throughput or per-append sync for strongest durability.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          </div>
+          <h3>Multi-Dimensional Labels</h3>
+          <p>Tag data points with key-value labels for flexible querying. Filter by any combination of labels with efficient binary marshaling.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-cloud">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3>Container-Aware</h3>
+          <p>Automatic cgroup detection for CPU and memory limits. Optimal resource usage in Docker, Kubernetes, and other containerized environments.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-query">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3>Rich Querying</h3>
+          <p>Downsampling, aggregation (Sum, Avg, Min, Max, Last), pagination, and time-range filtering built in. No external query engine needed.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-partition">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <h3>Time-Based Partitioning</h3>
+          <p>Automatic partition management with configurable durations. Old partitions expire based on retention policy. Out-of-order writes handled gracefully.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Performance -->
+  <section id="performance" class="performance">
+    <div class="container">
+      <div class="section-header">
+        <h2>Benchmarks that speak<br>for themselves.</h2>
+        <p>Measured on AMD Ryzen 7940HS, single core.</p>
+      </div>
+      <div class="bench-grid">
+        <div class="bench-card">
+          <div class="bench-header">
+            <span class="bench-label">Single Insert</span>
+            <span class="bench-badge">Latency</span>
+          </div>
+          <div class="bench-value">~100<span class="bench-unit">ns</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 95%"></div></div>
+          <div class="bench-detail">10M operations/sec</div>
+        </div>
+        <div class="bench-card">
+          <div class="bench-header">
+            <span class="bench-label">Batch Insert (1K)</span>
+            <span class="bench-badge">Throughput</span>
+          </div>
+          <div class="bench-value">15<span class="bench-unit">M pts/s</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 100%"></div></div>
+          <div class="bench-detail">~67&micro;s per 1,000-point batch</div>
+        </div>
+        <div class="bench-card">
+          <div class="bench-header">
+            <span class="bench-label">Select 1K Points</span>
+            <span class="bench-badge">Query</span>
+          </div>
+          <div class="bench-value">~220<span class="bench-unit">ns</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 80%"></div></div>
+          <div class="bench-detail">4.5M queries/sec</div>
+        </div>
+        <div class="bench-card">
+          <div class="bench-header">
+            <span class="bench-label">Select 1M Points</span>
+            <span class="bench-badge">Query</span>
+          </div>
+          <div class="bench-value">~290<span class="bench-unit">ns</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 70%"></div></div>
+          <div class="bench-detail">3.4M queries/sec</div>
+        </div>
+        <div class="bench-card">
+          <div class="bench-header">
+            <span class="bench-label">Compression Ratio</span>
+            <span class="bench-badge">Storage</span>
+          </div>
+          <div class="bench-value">1.37<span class="bench-unit">bytes/pt</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 90%"></div></div>
+          <div class="bench-detail">Gorilla compression with XOR encoding</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Usage / Code Examples -->
+  <section id="usage" class="usage">
+    <div class="container">
+      <div class="section-header">
+        <h2>Get started in minutes.</h2>
+        <p>Add tsink to your Cargo.toml and start storing time-series data.</p>
+      </div>
+
+      <div class="install-block">
+        <div class="install-label">Add to Cargo.toml</div>
+        <div class="code-window code-window-sm">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">Cargo.toml</span>
+          </div>
+          <pre><code>[dependencies]
+tsink = <span class="str">"0.6"</span></code></pre>
+        </div>
+      </div>
+
+      <div class="examples-tabs">
+        <button class="tab active" data-tab="basic">Basic Usage</button>
+        <button class="tab" data-tab="persistent">Persistent Storage</button>
+        <button class="tab" data-tab="labels">Labels &amp; Queries</button>
+        <button class="tab" data-tab="aggregation">Aggregation</button>
+      </div>
+
+      <div class="tab-content active" id="tab-basic">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">basic_usage.rs</span>
+          </div>
+          <pre><code><span class="kw">use</span> tsink::{DataPoint, Row, Storage, StorageBuilder, TimestampPrecision};
+
+<span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="comment">// Create an in-memory storage instance</span>
+    <span class="kw">let</span> storage = StorageBuilder::new()
+        .with_timestamp_precision(TimestampPrecision::Seconds)
+        .build()?;
+
+    <span class="comment">// Insert data points</span>
+    <span class="kw">let</span> rows = <span class="kw">vec!</span>[
+        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1600000000</span>, <span class="num">45.5</span>)),
+        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1600000060</span>, <span class="num">47.2</span>)),
+        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1600000120</span>, <span class="num">42.1</span>)),
+    ];
+    storage.insert_rows(&amp;rows)?;
+
+    <span class="comment">// Query the data</span>
+    <span class="kw">let</span> points = storage.select(
+        <span class="str">"cpu_usage"</span>, &amp;[], <span class="num">1600000000</span>, <span class="num">1600000121</span>
+    )?;
+
+    <span class="kw">for</span> p <span class="kw">in</span> &amp;points {
+        <span class="macro">println!</span>(<span class="str">"ts={}, val={}"</span>, p.timestamp, p.value);
+    }
+
+    storage.close()?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-persistent">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">persistent_storage.rs</span>
+          </div>
+          <pre><code><span class="kw">use</span> tsink::{StorageBuilder, Storage, WalSyncMode};
+<span class="kw">use</span> std::time::Duration;
+
+<span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="comment">// Persistent storage with WAL and retention policy</span>
+    <span class="kw">let</span> storage = StorageBuilder::new()
+        .with_data_path(<span class="str">"./tsink-data"</span>)
+        .with_partition_duration(Duration::from_secs(<span class="num">3600</span>))
+        .with_retention(Duration::from_secs(<span class="num">7</span> * <span class="num">24</span> * <span class="num">3600</span>))
+        .with_wal_buffer_size(<span class="num">8192</span>)
+        .with_wal_sync_mode(WalSyncMode::Periodic(Duration::from_secs(<span class="num">1</span>)))
+        .with_max_writers(<span class="num">4</span>)
+        .with_write_timeout(Duration::from_secs(<span class="num">30</span>))
+        .build()?;
+
+    <span class="comment">// Data survives application restarts.</span>
+    <span class="comment">// WAL ensures durability on crash.</span>
+    <span class="comment">// Retention auto-cleans partitions older than 7 days.</span>
+
+    storage.close()?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-labels">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">labels.rs</span>
+          </div>
+          <pre><code><span class="kw">use</span> tsink::{DataPoint, Label, Row, Storage, StorageBuilder};
+
+<span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="kw">let</span> storage = StorageBuilder::new().build()?;
+
+    <span class="comment">// Insert with multi-dimensional labels</span>
+    <span class="kw">let</span> rows = <span class="kw">vec!</span>[
+        Row::with_labels(
+            <span class="str">"http_requests"</span>,
+            <span class="kw">vec!</span>[
+                Label::new(<span class="str">"method"</span>, <span class="str">"GET"</span>),
+                Label::new(<span class="str">"status"</span>, <span class="str">"200"</span>),
+                Label::new(<span class="str">"endpoint"</span>, <span class="str">"/api/users"</span>),
+            ],
+            DataPoint::new(<span class="num">1600000000</span>, <span class="num">150.0</span>),
+        ),
+    ];
+    storage.insert_rows(&amp;rows)?;
+
+    <span class="comment">// Query with label filters</span>
+    <span class="kw">let</span> points = storage.select(
+        <span class="str">"http_requests"</span>,
+        &amp;[Label::new(<span class="str">"method"</span>, <span class="str">"GET"</span>)],
+        <span class="num">1600000000</span>, <span class="num">1600000100</span>,
+    )?;
+
+    storage.close()?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-aggregation">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">aggregation.rs</span>
+          </div>
+          <pre><code><span class="kw">use</span> tsink::{Aggregation, QueryOptions, Storage, StorageBuilder};
+
+<span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="kw">let</span> storage = StorageBuilder::new().build()?;
+
+    <span class="comment">// ... insert data ...</span>
+
+    <span class="comment">// Downsample + aggregate: 2-second buckets with average</span>
+    <span class="kw">let</span> opts = QueryOptions::new(<span class="num">1_000</span>, <span class="num">5_000</span>)
+        .with_downsample(<span class="num">2_000</span>, Aggregation::Avg)
+        .with_pagination(<span class="num">0</span>, <span class="macro">Some</span>(<span class="num">10</span>));
+
+    <span class="kw">let</span> buckets = storage.select_with_options(<span class="str">"cpu"</span>, opts)?;
+
+    <span class="comment">// Available aggregations: Sum, Min, Max, Avg, Last</span>
+    <span class="kw">for</span> dp <span class="kw">in</span> &amp;buckets {
+        <span class="macro">println!</span>(<span class="str">"bucket ts={}, avg={}"</span>, dp.timestamp, dp.value);
+    }
+
+    storage.close()?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section id="architecture" class="architecture">
+    <div class="container">
+      <div class="section-header">
+        <h2>How it works under the hood.</h2>
+        <p>A clean, modular architecture designed for reliability.</p>
+      </div>
+      <div class="arch-diagram">
+        <div class="arch-layer arch-layer-app">
+          <div class="arch-layer-label">Application Layer</div>
+          <div class="arch-boxes">
+            <div class="arch-box"><code>insert_rows()</code></div>
+            <div class="arch-box"><code>select()</code></div>
+            <div class="arch-box"><code>select_with_options()</code></div>
+          </div>
+        </div>
+        <div class="arch-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        </div>
+        <div class="arch-layer arch-layer-engine">
+          <div class="arch-layer-label">Storage Engine</div>
+          <div class="arch-boxes">
+            <div class="arch-box">Worker Pool</div>
+            <div class="arch-box">Gorilla Encoder</div>
+            <div class="arch-box">Label Index</div>
+          </div>
+        </div>
+        <div class="arch-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        </div>
+        <div class="arch-layer arch-layer-partition">
+          <div class="arch-layer-label">Partition Layer</div>
+          <div class="arch-boxes">
+            <div class="arch-box arch-box-active">Active<br><small>writable</small></div>
+            <div class="arch-box arch-box-buffer">Buffer<br><small>out-of-order</small></div>
+            <div class="arch-box arch-box-disk">Disk<br><small>mmap, read-only</small></div>
+          </div>
+        </div>
+        <div class="arch-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        </div>
+        <div class="arch-layer arch-layer-durability">
+          <div class="arch-layer-label">Durability Layer</div>
+          <div class="arch-boxes">
+            <div class="arch-box">Write-Ahead Log</div>
+            <div class="arch-box">Memory-Mapped Files</div>
+            <div class="arch-box">Retention Policy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Config table -->
+  <section class="config">
+    <div class="container">
+      <div class="section-header">
+        <h2>Fully configurable.</h2>
+        <p>Tune every aspect of the storage engine via the builder API.</p>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th>Description</th>
+              <th>Default</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>with_data_path(path)</code></td>
+              <td>Directory for persistent storage</td>
+              <td><span class="default-val">None (in-memory)</span></td>
+            </tr>
+            <tr>
+              <td><code>with_retention(dur)</code></td>
+              <td>How long to keep data before auto-cleanup</td>
+              <td><span class="default-val">14 days</span></td>
+            </tr>
+            <tr>
+              <td><code>with_timestamp_precision(p)</code></td>
+              <td>Nanoseconds, Microseconds, Milliseconds, or Seconds</td>
+              <td><span class="default-val">Nanoseconds</span></td>
+            </tr>
+            <tr>
+              <td><code>with_max_writers(n)</code></td>
+              <td>Maximum concurrent write workers</td>
+              <td><span class="default-val">CPU count</span></td>
+            </tr>
+            <tr>
+              <td><code>with_write_timeout(dur)</code></td>
+              <td>Timeout for write operations</td>
+              <td><span class="default-val">30 seconds</span></td>
+            </tr>
+            <tr>
+              <td><code>with_partition_duration(dur)</code></td>
+              <td>Time range covered by each partition</td>
+              <td><span class="default-val">1 hour</span></td>
+            </tr>
+            <tr>
+              <td><code>with_wal_enabled(bool)</code></td>
+              <td>Enable write-ahead logging for durability</td>
+              <td><span class="default-val">true</span></td>
+            </tr>
+            <tr>
+              <td><code>with_wal_buffer_size(n)</code></td>
+              <td>WAL buffer size in bytes</td>
+              <td><span class="default-val">4096</span></td>
+            </tr>
+            <tr>
+              <td><code>with_wal_sync_mode(mode)</code></td>
+              <td>WAL fsync strategy: <code>Periodic(Duration)</code> or <code>PerAppend</code></td>
+              <td><span class="default-val">Periodic(1s)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <div class="container">
+      <div class="cta-card">
+        <h2>Ready to embed a time-series engine?</h2>
+        <p>Add tsink to your Rust project and start storing millions of data points with minimal overhead.</p>
+        <div class="cta-actions">
+          <a href="https://github.com/h2337/tsink" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+          </a>
+          <a href="https://crates.io/crates/tsink" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">crates.io</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-left">
+        <span class="footer-logo">tsink</span>
+        <span class="footer-copy">MIT License &middot; &copy; 2026 h2337</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/h2337/tsink" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://crates.io/crates/tsink" target="_blank" rel="noopener">Crates.io</a>
+        <a href="https://docs.rs/tsink" target="_blank" rel="noopener">Docs</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
