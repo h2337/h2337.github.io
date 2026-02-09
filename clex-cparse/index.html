@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>clex + cparse &mdash; A Complete Parsing Toolkit for C</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:        #0b0e17;
+  --bg-card:   #111827;
+  --bg-code:   #0d1117;
+  --blue-1:    #0066cc;
+  --blue-2:    #004499;
+  --blue-3:    #3b82f6;
+  --blue-glow: rgba(59,130,246,.15);
+  --cyan:      #22d3ee;
+  --green:     #34d399;
+  --amber:     #fbbf24;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --border:    #1e293b;
+  --mono:      'Consolas', 'Monaco', 'Fira Code', 'JetBrains Mono', monospace;
+  --sans:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+a { color: var(--blue-3); text-decoration: none; transition: color .2s; }
+a:hover { color: var(--cyan); }
+
+/* ── Utility ──────────────────────────────────────────────────── */
+.container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+.section { padding: 5rem 0; }
+.section-title {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: .5rem;
+  background: linear-gradient(135deg, var(--blue-3), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.section-subtitle {
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  margin-bottom: 3rem;
+}
+.divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* ── Navigation ───────────────────────────────────────────────── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(11,14,23,.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+nav .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 3.5rem;
+}
+nav .brand {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text);
+  letter-spacing: .5px;
+}
+nav .brand span { color: var(--blue-3); }
+nav ul { list-style: none; display: flex; gap: 1.75rem; }
+nav ul li a {
+  font-size: .875rem;
+  color: var(--text-dim);
+  font-weight: 500;
+  transition: color .2s;
+}
+nav ul li a:hover { color: var(--text); }
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 3.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40%; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 900px;
+  background: radial-gradient(circle, rgba(0,102,204,.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-content { position: relative; z-index: 1; }
+.hero-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.hero-logo {
+  font-family: var(--mono);
+  font-size: 3.5rem;
+  font-weight: 700;
+  font-style: italic;
+  background: linear-gradient(135deg, var(--blue-1), var(--blue-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(0,102,204,.4));
+  letter-spacing: 2px;
+}
+.hero-plus {
+  font-size: 2rem;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+.hero h1 {
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+.hero h1 strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.hero-tagline {
+  font-family: var(--mono);
+  font-size: .95rem;
+  color: var(--text-dim);
+  margin-bottom: 2.5rem;
+  letter-spacing: .5px;
+}
+.hero-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .75rem 1.5rem;
+  border-radius: 8px;
+  font-size: .9rem;
+  font-weight: 600;
+  transition: all .2s;
+  cursor: pointer;
+  border: none;
+  font-family: var(--sans);
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--blue-1), var(--blue-2));
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0,102,204,.3);
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 28px rgba(0,102,204,.45);
+  transform: translateY(-1px);
+  color: #fff;
+}
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover {
+  border-color: var(--blue-3);
+  color: var(--blue-3);
+  background: var(--blue-glow);
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: 1.5rem;
+  padding: .35rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: .8rem;
+  color: var(--text-dim);
+  background: rgba(30,41,59,.5);
+}
+.hero-badge .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+/* ── Pipeline ─────────────────────────────────────────────────── */
+.pipeline {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+.pipeline-title {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  margin-bottom: 2.5rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 500;
+}
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+.pipeline-node {
+  padding: 1rem 1.75rem;
+  border-radius: 12px;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: .95rem;
+  position: relative;
+}
+.pipeline-node.source {
+  background: rgba(251,191,36,.08);
+  border: 1px solid rgba(251,191,36,.25);
+  color: var(--amber);
+}
+.pipeline-node.lexer {
+  background: rgba(59,130,246,.08);
+  border: 1px solid rgba(59,130,246,.25);
+  color: var(--blue-3);
+}
+.pipeline-node.parser {
+  background: rgba(34,211,238,.08);
+  border: 1px solid rgba(34,211,238,.25);
+  color: var(--cyan);
+}
+.pipeline-node.tree {
+  background: rgba(52,211,153,.08);
+  border: 1px solid rgba(52,211,153,.25);
+  color: var(--green);
+}
+.pipeline-node small {
+  display: block;
+  font-size: .7rem;
+  font-weight: 400;
+  margin-top: .25rem;
+  opacity: .7;
+}
+.pipeline-arrow {
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  padding: 0 .75rem;
+  user-select: none;
+}
+
+/* ── Features ─────────────────────────────────────────────────── */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.75rem;
+  transition: border-color .2s, box-shadow .2s;
+}
+.feature-card:hover {
+  border-color: rgba(59,130,246,.3);
+  box-shadow: 0 4px 24px rgba(59,130,246,.06);
+}
+.feature-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+.feature-icon.blue  { background: rgba(59,130,246,.1); color: var(--blue-3); }
+.feature-icon.cyan  { background: rgba(34,211,238,.1);  color: var(--cyan); }
+.feature-icon.green { background: rgba(52,211,153,.1);  color: var(--green); }
+.feature-icon.amber { background: rgba(251,191,36,.1);  color: var(--amber); }
+.feature-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: .5rem;
+}
+.feature-card p {
+  font-size: .9rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* ── Project Sections (clex / cparse) ─────────────────────────── */
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.project-logo {
+  font-family: var(--mono);
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-style: italic;
+  background: linear-gradient(135deg, var(--blue-1), var(--blue-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(0,102,204,.3));
+  letter-spacing: 1px;
+}
+.project-desc {
+  font-size: 1.05rem;
+  color: var(--text-dim);
+}
+.project-badges {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .5rem;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .2rem .65rem;
+  border-radius: 6px;
+  font-size: .75rem;
+  font-family: var(--mono);
+  font-weight: 500;
+}
+.badge.lang   { background: rgba(59,130,246,.1);  color: var(--blue-3); border: 1px solid rgba(59,130,246,.2); }
+.badge.mit    { background: rgba(52,211,153,.1);  color: var(--green);  border: 1px solid rgba(52,211,153,.2); }
+.badge.header { background: rgba(251,191,36,.1);  color: var(--amber);  border: 1px solid rgba(251,191,36,.2); }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+.api-table-wrap {
+  overflow-x: auto;
+}
+.api-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+}
+.api-table th {
+  text-align: left;
+  padding: .75rem 1rem;
+  background: rgba(59,130,246,.06);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--blue-3);
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.api-table td {
+  padding: .6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.api-table td:first-child {
+  font-family: var(--mono);
+  color: var(--cyan);
+  white-space: nowrap;
+  font-size: .82rem;
+}
+.api-table td:last-child {
+  color: var(--text-dim);
+}
+.api-table tr:last-child td {
+  border-bottom: none;
+}
+.api-table-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ── Code blocks ──────────────────────────────────────────────── */
+.code-block {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 1rem;
+  background: rgba(30,41,59,.5);
+  border-bottom: 1px solid var(--border);
+}
+.code-dots {
+  display: flex;
+  gap: 6px;
+}
+.code-dots span {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+.code-dots span:nth-child(1) { background: #ef4444; }
+.code-dots span:nth-child(2) { background: #eab308; }
+.code-dots span:nth-child(3) { background: #22c55e; }
+.code-filename {
+  font-family: var(--mono);
+  font-size: .78rem;
+  color: var(--text-dim);
+}
+.code-block pre {
+  padding: 1.25rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: .82rem;
+  line-height: 1.65;
+  color: var(--text);
+  tab-size: 4;
+}
+/* syntax colours */
+.kw  { color: #c084fc; }      /* keywords */
+.fn  { color: #60a5fa; }      /* functions */
+.str { color: #34d399; }      /* strings */
+.cm  { color: #64748b; }      /* comments */
+.tp  { color: #22d3ee; }      /* types */
+.num { color: #fbbf24; }      /* numbers */
+.pp  { color: #fb923c; }      /* preprocessor */
+.op  { color: #94a3b8; }      /* operators */
+
+/* ── Highlights list ──────────────────────────────────────────── */
+.highlight-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+.highlight-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  font-size: .92rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.highlight-list .check {
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  background: rgba(52,211,153,.1);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .7rem;
+  margin-top: 2px;
+}
+
+/* ── Getting Started ──────────────────────────────────────────── */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  counter-reset: step;
+}
+.step {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  counter-increment: step;
+}
+.step-num {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--blue-1), var(--blue-2));
+  color: #fff;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: .9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: .35rem;
+}
+.step-content p {
+  color: var(--text-dim);
+  font-size: .9rem;
+}
+.step-content .code-inline {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .5rem .85rem;
+  display: inline-block;
+  margin-top: .5rem;
+  font-family: var(--mono);
+  font-size: .82rem;
+  color: var(--cyan);
+}
+
+/* ── Grammar Format ───────────────────────────────────────────── */
+.grammar-rules {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.75rem;
+}
+.grammar-rules h3 {
+  font-family: var(--mono);
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+.grammar-rules ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.grammar-rules li {
+  font-size: .9rem;
+  color: var(--text-dim);
+  padding-left: 1.25rem;
+  position: relative;
+}
+.grammar-rules li::before {
+  content: '\2192';
+  position: absolute;
+  left: 0;
+  color: var(--blue-3);
+}
+
+/* ── Stats ────────────────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+}
+.stat {
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.stat-value {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--blue-3), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label {
+  font-size: .82rem;
+  color: var(--text-dim);
+  margin-top: .25rem;
+}
+
+/* ── Footer ───────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 3rem 0;
+  text-align: center;
+}
+footer .footer-brand {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: .5rem;
+}
+footer .footer-brand span { color: var(--blue-3); }
+footer p {
+  font-size: .85rem;
+  color: var(--text-dim);
+}
+footer .footer-links {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+}
+footer .footer-links a {
+  font-size: .85rem;
+  color: var(--text-dim);
+}
+footer .footer-links a:hover { color: var(--blue-3); }
+
+/* ── Regex feature table ──────────────────────────────────────── */
+.regex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: .75rem;
+}
+.regex-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+.regex-item code {
+  font-family: var(--mono);
+  font-size: .9rem;
+  color: var(--cyan);
+  background: rgba(34,211,238,.06);
+  padding: .15rem .45rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.regex-item span {
+  font-size: .85rem;
+  color: var(--text-dim);
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hero-logo { font-size: 2.5rem; }
+  .hero h1 { font-size: 1.2rem; }
+  .section-title { font-size: 1.6rem; }
+  .pipeline-flow { flex-direction: column; gap: .5rem; }
+  .pipeline-arrow { transform: rotate(90deg); padding: 0; }
+  nav ul { gap: 1rem; }
+  nav ul li a { font-size: .8rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ Navigation ════════════ -->
+<nav>
+  <div class="container">
+    <a href="#" class="brand"><span>clex</span> + <span>cparse</span></a>
+    <ul>
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#clex">clex</a></li>
+      <li><a href="#cparse">cparse</a></li>
+      <li><a href="#start">Get Started</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ════════════ Hero ════════════ -->
+<section class="hero">
+  <div class="hero-content container">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Portable C11 &middot; Zero dependencies &middot; MIT License
+    </div>
+    <div class="hero-logos">
+      <span class="hero-logo">clex</span>
+      <span class="hero-plus">+</span>
+      <span class="hero-logo">cparse</span>
+    </div>
+    <h1>
+      A <strong>complete parsing toolkit</strong> for C.<br>
+      From source text to parse trees in minutes.
+    </h1>
+    <p class="hero-tagline">Lexer generator &middot; LR(1) &amp; LALR(1) parser generator &middot; NFA engine</p>
+    <div class="hero-buttons">
+      <a href="https://github.com/h2337/cparse" class="btn btn-primary">View on GitHub</a>
+      <a href="#start" class="btn btn-outline">Get Started</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">6</div>
+        <div class="stat-label">clex API functions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">8</div>
+        <div class="stat-label">cparse API functions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">0</div>
+        <div class="stat-label">External dependencies</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">C11</div>
+        <div class="stat-label">Portable standard</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ Pipeline ════════════ -->
+<section id="pipeline" class="section">
+  <div class="container">
+    <div class="pipeline">
+      <div class="pipeline-title">The Parsing Pipeline</div>
+      <div class="pipeline-flow">
+        <div class="pipeline-node source">
+          Source Text
+          <small>your input string</small>
+        </div>
+        <div class="pipeline-arrow">&xrarr;</div>
+        <div class="pipeline-node lexer">
+          clex
+          <small>regex-based tokenizer</small>
+        </div>
+        <div class="pipeline-arrow">&xrarr;</div>
+        <div class="pipeline-node parser">
+          cparse
+          <small>LR(1) / LALR(1)</small>
+        </div>
+        <div class="pipeline-arrow">&xrarr;</div>
+        <div class="pipeline-node tree">
+          Parse Tree
+          <small>structured output</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ Features ════════════ -->
+<section id="features" class="section">
+  <div class="container">
+    <div class="section-title">Why clex + cparse?</div>
+    <div class="section-subtitle">Everything you need to build lexers and parsers in plain C.</div>
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon blue">&#x2699;</div>
+        <h3>No Code Generation</h3>
+        <p>Unlike traditional tools, clex needs no separate code generation step. Define patterns at runtime and start tokenizing immediately.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon cyan">&#x27A1;</div>
+        <h3>NFA-Based Regex Engine</h3>
+        <p>Thompson NFA construction provides reliable matching with support for grouping, alternation, character classes, ranges, and quantifiers.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon green">&#x2713;</div>
+        <h3>LR(1) &amp; LALR(1) Parsing</h3>
+        <p>Full LR(1) parser construction with optional LALR(1) state merging. Handles left-recursive grammars and complex language constructs.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon amber">&#x26A1;</div>
+        <h3>Predictable Performance</h3>
+        <p>Dynamic, resizable data structures throughout. No fixed-size arrays or arbitrary limits on grammar complexity.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon blue">&#x1F6E1;</div>
+        <h3>Safe Failure Modes</h3>
+        <p>Invalid rules return <code>false</code>. The lexer yields a clear EOF sentinel. Malformed grammars emit helpful diagnostics to stderr.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon cyan">&#x1F333;</div>
+        <h3>Parse Tree Output</h3>
+        <p>Get structured parse trees with symbol values, matched tokens for terminals, and child node vectors for easy traversal.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ clex Section ════════════ -->
+<section id="clex" class="section">
+  <div class="container">
+    <div class="project-header">
+      <div>
+        <div class="project-logo">clex</div>
+        <p class="project-desc">A tiny, battle-tested lexer generator for C. Feed it regular expressions, get tokens back.</p>
+        <div class="project-badges">
+          <span class="badge lang">C11</span>
+          <span class="badge mit">MIT</span>
+          <span class="badge header">Header + Source</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:1.1rem; margin-bottom:1.25rem;">Highlights</h3>
+        <ul class="highlight-list">
+          <li><span class="check">&#x2713;</span> Simple 6-function API &mdash; no code generation required</li>
+          <li><span class="check">&#x2713;</span> Regex: grouping, alternation, character classes, ranges, <code>* + ?</code></li>
+          <li><span class="check">&#x2713;</span> Whitespace between tokens is skipped automatically</li>
+          <li><span class="check">&#x2713;</span> Up to 1024 token rules (configurable via <code>CLEX_MAX_RULES</code>)</li>
+          <li><span class="check">&#x2713;</span> NFA visualization via Graphviz output</li>
+          <li><span class="check">&#x2713;</span> Safe EOF sentinel: <code>{.kind = -1, .lexeme = NULL}</code></li>
+        </ul>
+      </div>
+
+      <div class="api-table-container">
+        <table class="api-table">
+          <thead><tr><th>Function</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>clexInit()</td><td>Allocate and return a new lexer</td></tr>
+            <tr><td>clexRegisterKind()</td><td>Register a regex pattern for a token kind</td></tr>
+            <tr><td>clexReset()</td><td>Point lexer at a new input string</td></tr>
+            <tr><td>clex()</td><td>Return the next matched token</td></tr>
+            <tr><td>clexDeleteKinds()</td><td>Clear all rules for reuse</td></tr>
+            <tr><td>clexLexerDestroy()</td><td>Free all lexer resources</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3 style="font-size:1.1rem; margin: 2.5rem 0 1.25rem;">Supported Regex Syntax</h3>
+    <div class="regex-grid">
+      <div class="regex-item"><code>(ab)</code> <span>Grouping</span></div>
+      <div class="regex-item"><code>a|b</code> <span>Alternation</span></div>
+      <div class="regex-item"><code>[a-z]</code> <span>Character classes</span></div>
+      <div class="regex-item"><code>[A-Z]</code> <span>Ranges</span></div>
+      <div class="regex-item"><code>a*</code> <span>Zero or more</span></div>
+      <div class="regex-item"><code>a+</code> <span>One or more</span></div>
+      <div class="regex-item"><code>a?</code> <span>Optional</span></div>
+      <div class="regex-item"><code>\(</code> <span>Escape sequences</span></div>
+    </div>
+
+    <h3 style="font-size:1.1rem; margin: 2.5rem 0 1.25rem;">Example &mdash; Tokenizing C Code</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <span class="code-filename">tokenizer.c</span>
+      </div>
+<pre><span class="pp">#include</span> <span class="str">"clex.h"</span>
+
+<span class="kw">typedef enum</span> <span class="tp">TokenKind</span> { INT, OPARAN, CPARAN, IDENTIFIER, CONSTANT, SEMICOL } <span class="tp">TokenKind</span>;
+
+<span class="tp">int</span> <span class="fn">main</span>() {
+    <span class="tp">clexLexer</span> *lexer = <span class="fn">clexInit</span>();
+
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"int"</span>,                                   INT);
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\("</span>,                                   OPARAN);
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\)"</span>,                                   CPARAN);
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"[1-9][0-9]*"</span>,                            CONSTANT);
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">";"</span>,                                     SEMICOL);
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"[a-zA-Z_]([a-zA-Z_]|[0-9])*"</span>,          IDENTIFIER);
+
+    <span class="fn">clexReset</span>(lexer, <span class="str">"int main()"</span>);
+
+    <span class="tp">clexToken</span> tok;
+    <span class="kw">while</span> ((tok = <span class="fn">clex</span>(lexer)).kind != <span class="num">-1</span>) {
+        <span class="fn">printf</span>(<span class="str">"kind=%d  lexeme='%s'\n"</span>, tok.kind, tok.lexeme);
+    }
+
+    <span class="fn">clexLexerDestroy</span>(lexer);
+}</pre>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ cparse Section ════════════ -->
+<section id="cparse" class="section">
+  <div class="container">
+    <div class="project-header">
+      <div>
+        <div class="project-logo">cparse</div>
+        <p class="project-desc">An LR(1) and LALR(1) parser generator for C. Define grammars in plain text, get parse trees out.</p>
+        <div class="project-badges">
+          <span class="badge lang">C11</span>
+          <span class="badge mit">MIT</span>
+          <span class="badge header">Static Library</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:1.1rem; margin-bottom:1.25rem;">Highlights</h3>
+        <ul class="highlight-list">
+          <li><span class="check">&#x2713;</span> LR(1) construction with optional LALR(1) state merging</li>
+          <li><span class="check">&#x2713;</span> Intuitive textual grammar format</li>
+          <li><span class="check">&#x2713;</span> Automatic First/Follow set computation</li>
+          <li><span class="check">&#x2713;</span> Helpful diagnostics for malformed grammars</li>
+          <li><span class="check">&#x2713;</span> Parse tree production with full traversal support</li>
+          <li><span class="check">&#x2713;</span> Dynamic data structures &mdash; no fixed-size limits</li>
+          <li><span class="check">&#x2713;</span> Ships with <code>libcparse.a</code> static library build</li>
+        </ul>
+      </div>
+
+      <div class="api-table-container">
+        <table class="api-table">
+          <thead><tr><th>Function</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>cparseGrammar()</td><td>Parse a grammar string into internal representation</td></tr>
+            <tr><td>cparseCreateLR1Parser()</td><td>Build an LR(1) parser from a grammar</td></tr>
+            <tr><td>cparseCreateLALR1Parser()</td><td>Build an LALR(1) parser (merged states)</td></tr>
+            <tr><td>cparseAccept()</td><td>Check whether input belongs to the grammar</td></tr>
+            <tr><td>cparse()</td><td>Parse input and return the parse tree</td></tr>
+            <tr><td>cparseFreeParseTree()</td><td>Recursively release a parse tree</td></tr>
+            <tr><td>cparseFreeParser()</td><td>Release parser state</td></tr>
+            <tr><td>cparseFreeGrammar()</td><td>Release grammar data structures</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top: 2.5rem;">
+      <div>
+        <h3 style="font-size:1.1rem; margin-bottom:1.25rem;">Grammar Format</h3>
+        <div class="grammar-rules">
+          <h3>Syntax Rules</h3>
+          <ul>
+            <li>Each line defines a production: <code>NonTerminal -&gt; symbol1 symbol2 | alt</code></li>
+            <li>Tokens are whitespace-separated</li>
+            <li>Use <code>epsilon</code> for empty productions</li>
+            <li>Lines starting with <code>#</code> are comments</li>
+            <li>The first nonterminal becomes the start symbol</li>
+            <li>Use <code>|</code> to specify alternative productions</li>
+          </ul>
+        </div>
+        <div class="code-block" style="margin-top: 1rem;">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <span class="code-filename">grammar.txt</span>
+          </div>
+<pre><span class="cm"># Arithmetic expression grammar</span>
+Expr     <span class="op">-></span> Term ExprTail
+ExprTail <span class="op">-></span> PLUS Term ExprTail <span class="op">|</span> <span class="kw">epsilon</span>
+Term     <span class="op">-></span> Factor TermTail
+TermTail <span class="op">-></span> STAR Factor TermTail <span class="op">|</span> <span class="kw">epsilon</span>
+Factor   <span class="op">-></span> NUMBER <span class="op">|</span> LPAREN Expr RPAREN</pre>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="font-size:1.1rem; margin-bottom:1.25rem;">Parse Tree Structure</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <span class="code-filename">parse_tree_node.h</span>
+          </div>
+<pre><span class="kw">typedef struct</span> <span class="tp">ParseTreeNode</span> {
+    <span class="tp">char</span>     *value;      <span class="cm">/* grammar symbol       */</span>
+    <span class="tp">clexToken</span> token;      <span class="cm">/* matched token (term) */</span>
+    <span class="tp">PtrVec</span>    children;   <span class="cm">/* ParseTreeNode*       */</span>
+} <span class="tp">ParseTreeNode</span>;</pre>
+        </div>
+
+        <div class="code-block" style="margin-top: 1rem;">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <span class="code-filename">tree output for "8 + 5 * 2"</span>
+          </div>
+<pre>Expr
+ ├─ Term
+ │   └─ Factor
+ │       └─ NUMBER <span class="str">"8"</span>
+ ├─ ExprTail
+ │   ├─ PLUS <span class="str">"+"</span>
+ │   ├─ Term
+ │   │   ├─ Factor
+ │   │   │   └─ NUMBER <span class="str">"5"</span>
+ │   │   └─ TermTail
+ │   │       ├─ STAR <span class="str">"*"</span>
+ │   │       └─ Factor
+ │   │           └─ NUMBER <span class="str">"2"</span>
+ │   └─ ExprTail
+ │       └─ <span class="kw">epsilon</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ Full Example ════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-title">Complete Pipeline Example</div>
+    <div class="section-subtitle">clex and cparse working together to parse arithmetic expressions.</div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <span class="code-filename">expr_parser.c</span>
+      </div>
+<pre><span class="pp">#include</span> <span class="str">"cparse.h"</span>
+<span class="pp">#include</span> <span class="str">"clex/clex.h"</span>
+<span class="pp">#include</span> <span class="str">&lt;stdio.h&gt;</span>
+
+<span class="tp">int</span> <span class="fn">main</span>(<span class="tp">void</span>) {
+    <span class="cm">/* ── Step 1: Set up the lexer ─────────────────────────────── */</span>
+    <span class="tp">clexLexer</span> *lexer = <span class="fn">clexInit</span>();
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"[0-9]+"</span>,  <span class="num">0</span>);   <span class="cm">/* NUMBER */</span>
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\+"</span>,     <span class="num">1</span>);   <span class="cm">/* PLUS   */</span>
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\*"</span>,     <span class="num">2</span>);   <span class="cm">/* STAR   */</span>
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\("</span>,     <span class="num">3</span>);   <span class="cm">/* LPAREN */</span>
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\)"</span>,     <span class="num">4</span>);   <span class="cm">/* RPAREN */</span>
+
+    <span class="cm">/* ── Step 2: Define the grammar ──────────────────────────── */</span>
+    <span class="kw">const</span> <span class="tp">char</span> *grammar_src =
+        <span class="str">"Expr     -> Term ExprTail\n"</span>
+        <span class="str">"ExprTail -> PLUS Term ExprTail | epsilon\n"</span>
+        <span class="str">"Term     -> Factor TermTail\n"</span>
+        <span class="str">"TermTail -> STAR Factor TermTail | epsilon\n"</span>
+        <span class="str">"Factor   -> NUMBER | LPAREN Expr RPAREN"</span>;
+
+    <span class="tp">Grammar</span> *grammar = <span class="fn">cparseGrammar</span>(grammar_src);
+
+    <span class="cm">/* ── Step 3: Build the parser ───────────────────────────── */</span>
+    <span class="kw">const</span> <span class="tp">char</span> *names[] = {<span class="str">"NUMBER"</span>, <span class="str">"PLUS"</span>, <span class="str">"STAR"</span>, <span class="str">"LPAREN"</span>, <span class="str">"RPAREN"</span>};
+    <span class="tp">LALR1Parser</span> *parser = <span class="fn">cparseCreateLALR1Parser</span>(grammar, lexer, names);
+
+    <span class="cm">/* ── Step 4: Parse input ───────────────────────────────── */</span>
+    <span class="kw">const</span> <span class="tp">char</span> *input = <span class="str">"8 + 5 * 2"</span>;
+
+    <span class="kw">if</span> (<span class="fn">cparseAccept</span>(parser, input)) {
+        <span class="tp">ParseTreeNode</span> *tree = <span class="fn">cparse</span>(parser, input);
+        <span class="cm">/* ... traverse or inspect the parse tree ... */</span>
+        <span class="fn">cparseFreeParseTree</span>(tree);
+    }
+
+    <span class="cm">/* ── Cleanup ────────────────────────────────────────────── */</span>
+    <span class="fn">cparseFreeParser</span>(parser);
+    <span class="fn">cparseFreeGrammar</span>(grammar);
+    <span class="fn">clexLexerDestroy</span>(lexer);
+}</pre>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ Getting Started ════════════ -->
+<section id="start" class="section">
+  <div class="container">
+    <div class="section-title">Get Started</div>
+    <div class="section-subtitle">Up and running in under a minute.</div>
+
+    <div class="two-col">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Clone the repository</h3>
+            <p>cparse bundles clex as a git submodule.</p>
+            <div class="code-inline">git clone https://github.com/h2337/cparse.git</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Initialize submodules</h3>
+            <p>Pull in the clex lexer dependency.</p>
+            <div class="code-inline">cd cparse && git submodule update --init --recursive</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Build and test</h3>
+            <p>Builds <code>libcparse.a</code> and runs the test suite.</p>
+            <div class="code-inline">make test</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h3>Try the examples</h3>
+            <p>Build and run the expression parser demo.</p>
+            <div class="code-inline">make examples && ./examples/expr_parser "8 + 5 * 2"</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="font-size:1.1rem; margin-bottom:1.25rem;">Using clex Standalone</h3>
+        <p style="color: var(--text-dim); font-size:.9rem; margin-bottom: 1rem;">
+          If you only need the lexer, you can use clex on its own.
+        </p>
+        <div class="code-block" style="margin-bottom:1.5rem;">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <span class="code-filename">terminal</span>
+          </div>
+<pre><span class="cm"># Clone clex standalone</span>
+git clone https://github.com/h2337/clex.git
+<span class="kw">cd</span> clex
+
+<span class="cm"># Run the test suite</span>
+make test-all
+
+<span class="cm"># Build for library use</span>
+make lib
+
+<span class="cm"># Or compile directly</span>
+gcc your_app.c fa.c clex.c -o your_app</pre>
+        </div>
+
+        <h3 style="font-size:1.1rem; margin-bottom:1.25rem;">Linking cparse into Your Project</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <span class="code-filename">terminal</span>
+          </div>
+<pre><span class="cm"># After building, link the static library</span>
+gcc your_parser.c -L. -lcparse clex/clex.o clex/fa.o -o your_parser
+
+<span class="cm"># Or embed the sources directly</span>
+gcc your_parser.c grammar.c lr1_lalr1.c util.c \
+    clex/clex.c clex/fa.c -o your_parser</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ Footer ════════════ -->
+<footer>
+  <div class="container">
+    <div class="footer-brand"><span>clex</span> + <span>cparse</span></div>
+    <p>A complete parsing toolkit for C. MIT Licensed.</p>
+    <div class="footer-links">
+      <a href="https://github.com/h2337/clex">clex on GitHub</a>
+      <a href="https://github.com/h2337/cparse">cparse on GitHub</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
