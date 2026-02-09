@@ -801,7 +801,7 @@ footer .footer-links a:hover { color: var(--blue-3); }
       <div class="feature-card">
         <div class="feature-icon blue">&#x1F6E1;</div>
         <h3>Safe Failure Modes</h3>
-        <p>Invalid rules return <code>false</code>. The lexer yields a clear EOF sentinel. Malformed grammars emit helpful diagnostics to stderr.</p>
+        <p>Invalid rules return <code>false</code>. The lexer yields <code>CLEX_TOKEN_EOF</code> at end-of-input and <code>CLEX_TOKEN_ERROR</code> on lexical failures. Malformed grammars emit helpful diagnostics to stderr.</p>
       </div>
 
       <div class="feature-card">
@@ -840,7 +840,7 @@ footer .footer-links a:hover { color: var(--blue-3); }
           <li><span class="check">&#x2713;</span> Whitespace between tokens is skipped automatically</li>
           <li><span class="check">&#x2713;</span> Up to 1024 token rules (configurable via <code>CLEX_MAX_RULES</code>)</li>
           <li><span class="check">&#x2713;</span> NFA visualization via Graphviz output</li>
-          <li><span class="check">&#x2713;</span> Safe EOF sentinel: <code>{.kind = -1, .lexeme = NULL}</code></li>
+          <li><span class="check">&#x2713;</span> Explicit sentinels: <code>CLEX_TOKEN_EOF</code> and <code>CLEX_TOKEN_ERROR</code></li>
         </ul>
       </div>
 
@@ -878,6 +878,8 @@ footer .footer-links a:hover { color: var(--blue-3); }
         <span class="code-filename">tokenizer.c</span>
       </div>
 <pre><span class="pp">#include</span> <span class="str">"clex.h"</span>
+<span class="pp">#include</span> <span class="str">&lt;stdio.h&gt;</span>
+<span class="pp">#include</span> <span class="str">&lt;stdlib.h&gt;</span>
 
 <span class="kw">typedef enum</span> <span class="tp">TokenKind</span> { INT, OPARAN, CPARAN, IDENTIFIER, CONSTANT, SEMICOL } <span class="tp">TokenKind</span>;
 
@@ -887,15 +889,21 @@ footer .footer-links a:hover { color: var(--blue-3); }
     <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"int"</span>,                                   INT);
     <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\("</span>,                                   OPARAN);
     <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"\\)"</span>,                                   CPARAN);
-    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"[1-9][0-9]*"</span>,                            CONSTANT);
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"[1-9][0-9]*"</span>,                           CONSTANT);
     <span class="fn">clexRegisterKind</span>(lexer, <span class="str">";"</span>,                                     SEMICOL);
-    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"[a-zA-Z_]([a-zA-Z_]|[0-9])*"</span>,          IDENTIFIER);
+    <span class="fn">clexRegisterKind</span>(lexer, <span class="str">"[a-zA-Z_]([a-zA-Z_]|[0-9])*"</span>,           IDENTIFIER);
 
     <span class="fn">clexReset</span>(lexer, <span class="str">"int main()"</span>);
 
     <span class="tp">clexToken</span> tok;
-    <span class="kw">while</span> ((tok = <span class="fn">clex</span>(lexer)).kind != <span class="num">-1</span>) {
+    <span class="kw">while</span> ((tok = <span class="fn">clex</span>(lexer)).kind != <span class="tp">CLEX_TOKEN_EOF</span>) {
+        <span class="kw">if</span> (tok.kind == <span class="tp">CLEX_TOKEN_ERROR</span>) {
+            <span class="fn">fprintf</span>(<span class="id">stderr</span>, <span class="str">"lexical error near '%s'\n"</span>, tok.lexeme ? tok.lexeme : <span class="str">""</span>);
+            <span class="fn">free</span>(tok.lexeme);
+            <span class="kw">break</span>;
+        }
         <span class="fn">printf</span>(<span class="str">"kind=%d  lexeme='%s'\n"</span>, tok.kind, tok.lexeme);
+        <span class="fn">free</span>(tok.lexeme);
     }
 
     <span class="fn">clexLexerDestroy</span>(lexer);
@@ -940,8 +948,8 @@ footer .footer-links a:hover { color: var(--blue-3); }
           <thead><tr><th>Function</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td>cparseGrammar()</td><td>Parse a grammar string into internal representation</td></tr>
-            <tr><td>cparseCreateLR1Parser()</td><td>Build an LR(1) parser from a grammar</td></tr>
-            <tr><td>cparseCreateLALR1Parser()</td><td>Build an LALR(1) parser (merged states)</td></tr>
+            <tr><td>cparseCreateLR1Parser()</td><td>Build an LR(1) parser from a grammar and token-name map (array + count)</td></tr>
+            <tr><td>cparseCreateLALR1Parser()</td><td>Build an LALR(1) parser (merged states) from a token-name map (array + count)</td></tr>
             <tr><td>cparseAccept()</td><td>Check whether input belongs to the grammar</td></tr>
             <tr><td>cparse()</td><td>Parse input and return the parse tree</td></tr>
             <tr><td>cparseFreeParseTree()</td><td>Recursively release a parse tree</td></tr>
@@ -1058,7 +1066,8 @@ Factor   <span class="op">-></span> NUMBER <span class="op">|</span> LPAREN Expr
 
     <span class="cm">/* ── Step 3: Build the parser ───────────────────────────── */</span>
     <span class="kw">const</span> <span class="tp">char</span> *names[] = {<span class="str">"NUMBER"</span>, <span class="str">"PLUS"</span>, <span class="str">"STAR"</span>, <span class="str">"LPAREN"</span>, <span class="str">"RPAREN"</span>};
-    <span class="tp">LALR1Parser</span> *parser = <span class="fn">cparseCreateLALR1Parser</span>(grammar, lexer, names);
+    <span class="tp">LALR1Parser</span> *parser = <span class="fn">cparseCreateLALR1Parser</span>(
+        grammar, lexer, names, <span class="kw">sizeof</span>(names) / <span class="kw">sizeof</span>(names[<span class="num">0</span>]));
 
     <span class="cm">/* ── Step 4: Parse input ───────────────────────────────── */</span>
     <span class="kw">const</span> <span class="tp">char</span> *input = <span class="str">"8 + 5 * 2"</span>;
