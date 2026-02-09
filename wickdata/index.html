@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WickData - High-Performance Crypto Market Data for Python</title>
+  <meta name="description" content="Fetch, store, and stream historical cryptocurrency market data from 100+ exchanges. 10,000+ candles/second. Async-first. Python 3.9+.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --blue-500: #0066cc;
+      --blue-600: #004499;
+      --blue-400: #3399ff;
+      --blue-300: #66b3ff;
+      --green-400: #34d399;
+      --green-500: #10b981;
+      --purple-400: #a78bfa;
+      --amber-400: #fbbf24;
+      --red-400: #f87171;
+      --gray-50: #f8fafc;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-300: #cbd5e1;
+      --gray-400: #94a3b8;
+      --gray-500: #64748b;
+      --gray-600: #475569;
+      --gray-700: #334155;
+      --gray-800: #1e293b;
+      --gray-850: #162032;
+      --gray-900: #0f172a;
+      --gray-950: #0a0f1a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--gray-950);
+      color: var(--gray-200);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Utility ── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    code, .mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+    /* ── Animated background grid ── */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: -1;
+      background-image:
+        linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+      background-size: 64px 64px;
+    }
+    .bg-glow {
+      position: fixed; top: -40%; left: 50%; transform: translateX(-50%);
+      width: 900px; height: 900px; border-radius: 50%; z-index: -1;
+      background: radial-gradient(circle, rgba(0,102,204,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Navigation ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      background: rgba(10,15,26,.75);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    nav .container {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .nav-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.35rem; font-weight: 700; font-style: italic;
+      background: linear-gradient(135deg, var(--blue-400), var(--blue-500));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a {
+      color: var(--gray-400); text-decoration: none; font-size: .9rem;
+      font-weight: 500; transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--gray-100); }
+    .nav-gh {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
+      color: var(--gray-200) !important; font-size: .85rem !important;
+      transition: background .2s, border-color .2s;
+    }
+    .nav-gh:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.14); }
+    .nav-gh svg { width: 18px; height: 18px; fill: currentColor; }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 160px 0 100px; text-align: center;
+      position: relative;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px 6px 8px; border-radius: 100px;
+      background: rgba(0,102,204,.1); border: 1px solid rgba(0,102,204,.25);
+      font-size: .8rem; color: var(--blue-300); margin-bottom: 32px;
+      font-weight: 500;
+    }
+    .hero-badge .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green-400);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+    .hero h1 {
+      font-size: clamp(2.8rem, 6vw, 4.5rem);
+      font-weight: 800; line-height: 1.1;
+      color: var(--gray-50);
+      margin-bottom: 24px;
+      letter-spacing: -.02em;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--blue-400), var(--blue-300), var(--purple-400));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 1.2rem; max-width: 600px; margin: 0 auto 40px;
+      color: var(--gray-400); line-height: 1.7;
+    }
+    .hero-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: 12px;
+      font-size: .95rem; font-weight: 600;
+      text-decoration: none; transition: all .2s;
+      cursor: pointer; border: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+      color: #fff; box-shadow: 0 0 24px rgba(0,102,204,.3);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 40px rgba(0,102,204,.45);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,.06); color: var(--gray-200);
+      border: 1px solid rgba(255,255,255,.1);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,.1); }
+
+    /* ── Install snippet ── */
+    .install-bar {
+      display: inline-flex; align-items: center; gap: 12px;
+      margin-top: 48px; padding: 14px 24px;
+      background: var(--gray-900); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px; font-family: 'JetBrains Mono', monospace;
+      font-size: .9rem;
+    }
+    .install-bar .prompt { color: var(--gray-500); user-select: none; }
+    .install-bar .cmd { color: var(--green-400); }
+    .install-bar button {
+      background: none; border: none; color: var(--gray-500);
+      cursor: pointer; padding: 4px; border-radius: 4px; transition: color .2s;
+      display: flex; align-items: center;
+    }
+    .install-bar button:hover { color: var(--gray-200); }
+    .install-bar button svg { width: 18px; height: 18px; }
+
+    /* ── Candlestick visual ── */
+    .hero-visual {
+      margin-top: 72px;
+      display: flex; justify-content: center; align-items: flex-end;
+      gap: 6px; height: 160px;
+      opacity: .8;
+    }
+    .candle {
+      display: flex; flex-direction: column; align-items: center;
+      animation: candle-rise .8s ease-out both;
+    }
+    .candle .wick {
+      width: 2px; background: var(--gray-600); border-radius: 1px;
+    }
+    .candle .body {
+      width: 14px; border-radius: 3px; min-height: 8px;
+    }
+    .candle.green .body { background: var(--green-400); }
+    .candle.red .body { background: var(--red-400); }
+    .candle.green .wick { background: var(--green-400); opacity: .5; }
+    .candle.red .wick { background: var(--red-400); opacity: .5; }
+    @keyframes candle-rise {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ── Stats row ── */
+    .stats {
+      padding: 48px 0; border-top: 1px solid rgba(255,255,255,.05);
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .stats .container {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+    }
+    .stat { text-align: center; }
+    .stat-value {
+      font-size: 2rem; font-weight: 800; color: var(--gray-50);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .stat-value .accent { color: var(--blue-400); }
+    .stat-label { font-size: .85rem; color: var(--gray-500); margin-top: 4px; }
+
+    /* ── Section basics ── */
+    section { padding: 100px 0; }
+    .section-label {
+      font-size: .8rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--blue-400); margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800;
+      color: var(--gray-50); line-height: 1.2; margin-bottom: 16px;
+      letter-spacing: -.01em;
+    }
+    .section-subtitle {
+      font-size: 1.05rem; color: var(--gray-400); max-width: 560px;
+      line-height: 1.7;
+    }
+
+    /* ── Features grid ── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 20px; margin-top: 56px;
+    }
+    .feature-card {
+      padding: 32px; border-radius: 16px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.06);
+      transition: border-color .3s, background .3s;
+    }
+    .feature-card:hover {
+      border-color: rgba(0,102,204,.3);
+      background: rgba(0,102,204,.04);
+    }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px; font-size: 1.3rem;
+      background: rgba(0,102,204,.1); color: var(--blue-400);
+    }
+    .feature-card h3 {
+      font-size: 1.05rem; font-weight: 700; color: var(--gray-100);
+      margin-bottom: 8px;
+    }
+    .feature-card p { font-size: .9rem; color: var(--gray-400); line-height: 1.6; }
+
+    /* ── Code showcase ── */
+    .code-section { background: var(--gray-900); border-radius: 0; }
+    .code-layout {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
+      align-items: center;
+    }
+    .code-block {
+      background: var(--gray-950);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 16px; overflow: hidden;
+    }
+    .code-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 20px;
+      background: rgba(255,255,255,.03);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .code-dot:nth-child(1) { background: #ff5f57; }
+    .code-dot:nth-child(2) { background: #febc2e; }
+    .code-dot:nth-child(3) { background: #28c840; }
+    .code-filename {
+      margin-left: 12px; font-size: .78rem; color: var(--gray-500);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .code-body {
+      padding: 24px; overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82rem; line-height: 1.8;
+      white-space: pre;
+    }
+    .code-body .kw { color: var(--purple-400); }
+    .code-body .fn { color: var(--blue-300); }
+    .code-body .str { color: var(--green-400); }
+    .code-body .cm { color: var(--gray-600); }
+    .code-body .num { color: var(--amber-400); }
+    .code-body .op { color: var(--gray-400); }
+    .code-body .var { color: var(--gray-200); }
+
+    .code-features { display: flex; flex-direction: column; gap: 32px; }
+    .code-feature { display: flex; gap: 16px; }
+    .code-feature-icon {
+      width: 40px; height: 40px; min-width: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .code-feature-icon.blue { background: rgba(0,102,204,.12); color: var(--blue-400); }
+    .code-feature-icon.green { background: rgba(16,185,129,.12); color: var(--green-400); }
+    .code-feature-icon.purple { background: rgba(167,139,250,.12); color: var(--purple-400); }
+    .code-feature h4 { font-size: .95rem; font-weight: 600; color: var(--gray-100); margin-bottom: 4px; }
+    .code-feature p { font-size: .85rem; color: var(--gray-400); line-height: 1.6; }
+
+    /* ── Exchanges ── */
+    .exchanges-marquee {
+      display: flex; gap: 16px; margin-top: 48px;
+      overflow: hidden; mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+      -webkit-mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+    }
+    .exchanges-track {
+      display: flex; gap: 16px; animation: scroll 30s linear infinite;
+    }
+    @keyframes scroll {
+      to { transform: translateX(-50%); }
+    }
+    .exchange-chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 10px;
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06);
+      white-space: nowrap; font-size: .85rem; font-weight: 500;
+      color: var(--gray-300);
+    }
+    .exchange-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── Timeframes ── */
+    .tf-grid {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px;
+      justify-content: center;
+    }
+    .tf-chip {
+      padding: 8px 18px; border-radius: 8px;
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82rem; color: var(--gray-300);
+      transition: border-color .2s, color .2s;
+    }
+    .tf-chip:hover { border-color: var(--blue-500); color: var(--blue-300); }
+
+    /* ── Architecture ── */
+    .arch-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 20px; margin-top: 56px;
+    }
+    .arch-card {
+      padding: 28px; border-radius: 16px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .arch-card h3 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .9rem; color: var(--blue-300); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .arch-card p { font-size: .88rem; color: var(--gray-400); line-height: 1.6; }
+
+    /* ── CTA ── */
+    .cta {
+      text-align: center; padding: 120px 0;
+      position: relative;
+    }
+    .cta::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, rgba(0,102,204,.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta h2 {
+      font-size: clamp(2rem, 4vw, 3rem); font-weight: 800;
+      color: var(--gray-50); margin-bottom: 16px;
+    }
+    .cta p { font-size: 1.1rem; color: var(--gray-400); margin-bottom: 40px; max-width: 500px; margin-left: auto; margin-right: auto; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid rgba(255,255,255,.05);
+    }
+    footer .container {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    footer p { font-size: .82rem; color: var(--gray-500); }
+    footer a { color: var(--gray-400); text-decoration: none; transition: color .2s; }
+    footer a:hover { color: var(--gray-200); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: .82rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .code-layout { grid-template-columns: 1fr; }
+      .arch-grid { grid-template-columns: 1fr; }
+      .stats .container { grid-template-columns: repeat(2, 1fr); }
+      .nav-links a:not(.nav-gh) { display: none; }
+    }
+    @media (max-width: 600px) {
+      .features-grid { grid-template-columns: 1fr; }
+      .stats .container { grid-template-columns: 1fr; }
+      .hero-actions { flex-direction: column; align-items: center; }
+      footer .container { flex-direction: column; gap: 16px; text-align: center; }
+      .hero-visual { gap: 4px; }
+      .candle .body { width: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<!-- ── Nav ── -->
+<nav>
+  <div class="container">
+    <a href="#" class="nav-logo">wickdata</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#code">Examples</a>
+      <a href="#exchanges">Exchanges</a>
+      <a href="#architecture">Architecture</a>
+      <a href="https://github.com/h2337/wickdata" class="nav-gh" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.694.825.576C20.565 21.795 24 17.295 24 12 24 5.37 18.63 0 12 0z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      v0.1.0 &mdash; Now in public beta
+    </div>
+    <h1>
+      Crypto market data,<br>
+      <span class="gradient">blazingly fast.</span>
+    </h1>
+    <p>
+      Fetch, store, and stream historical OHLCV data from 100+ exchanges.
+      Built for backtesting, research, and ML pipelines.
+    </p>
+    <div class="hero-actions">
+      <a href="#code" class="btn btn-primary">Get Started</a>
+      <a href="https://github.com/h2337/wickdata" class="btn btn-secondary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="opacity:.7"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.694.825.576C20.565 21.795 24 17.295 24 12 24 5.37 18.63 0 12 0z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <div class="install-bar">
+      <span class="prompt">$</span>
+      <span class="cmd">pip install wickdata</span>
+      <button onclick="navigator.clipboard.writeText('pip install wickdata')" title="Copy to clipboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      </button>
+    </div>
+
+    <!-- Candlestick chart decoration -->
+    <div class="hero-visual" id="candle-chart" aria-hidden="true"></div>
+  </div>
+</section>
+
+<!-- ── Stats ── -->
+<div class="stats">
+  <div class="container">
+    <div class="stat">
+      <div class="stat-value"><span class="accent">10k+</span></div>
+      <div class="stat-label">Candles / second</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value"><span class="accent">100+</span></div>
+      <div class="stat-label">Exchanges supported</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value"><span class="accent">15</span></div>
+      <div class="stat-label">Timeframes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value"><span class="accent">90%+</span></div>
+      <div class="stat-label">Test coverage</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ── -->
+<section id="features">
+  <div class="container">
+    <div class="section-label">Features</div>
+    <div class="section-title">Everything you need for market data.</div>
+    <p class="section-subtitle">
+      A complete toolkit for fetching, managing, and querying historical cryptocurrency data with minimal boilerplate.
+    </p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#9889;</div>
+        <h3>High-Performance Batch Processing</h3>
+        <p>Process 10,000+ candles per second with async SQLite storage, automatic deduplication, and efficient indexing.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#127919;</div>
+        <h3>Intelligent Gap Detection</h3>
+        <p>Automatically identifies missing data ranges and fills gaps, ensuring your datasets are always complete and reliable.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128752;</div>
+        <h3>Memory-Efficient Streaming</h3>
+        <p>Process massive datasets without loading everything into RAM. Supports async generators, callbacks, and buffer modes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128640;</div>
+        <h3>Async-First Design</h3>
+        <p>Built from the ground up with async/await. Non-blocking I/O for maximum throughput with concurrent exchange fetchers.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128260;</div>
+        <h3>Automatic Retry Logic</h3>
+        <p>Configurable exponential backoff with jitter handles rate limits and transient failures gracefully.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128736;</div>
+        <h3>Fluent Builder APIs</h3>
+        <p>Intuitive builder pattern for data requests and queries. Chain methods for readable, self-documenting code.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Code Showcase ── -->
+<section id="code" class="code-section">
+  <div class="container">
+    <div class="code-layout">
+      <div>
+        <div class="section-label">Quick Start</div>
+        <div class="section-title">Up and running in seconds.</div>
+        <p class="section-subtitle" style="margin-bottom:40px;">
+          A clean, Pythonic API that feels natural. Fetch a week of BTC data in just a few lines.
+        </p>
+        <div class="code-features">
+          <div class="code-feature">
+            <div class="code-feature-icon blue">&#9881;</div>
+            <div>
+              <h4>Fluent Request Builder</h4>
+              <p>Chain methods to construct exactly the data request you need &mdash; exchange, symbol, timeframe, and date range.</p>
+            </div>
+          </div>
+          <div class="code-feature">
+            <div class="code-feature-icon green">&#9889;</div>
+            <div>
+              <h4>Context Manager</h4>
+              <p>Async <code>with</code> blocks handle connection lifecycle automatically. No manual cleanup needed.</p>
+            </div>
+          </div>
+          <div class="code-feature">
+            <div class="code-feature-icon purple">&#128202;</div>
+            <div>
+              <h4>Rich Statistics</h4>
+              <p>Every fetch returns detailed stats &mdash; total candles, gaps filled, time elapsed, and more.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+          <span class="code-filename">basic_usage.py</span>
+        </div>
+        <div class="code-body">
+<span class="kw">import</span> <span class="var">asyncio</span>
+<span class="kw">from</span> <span class="var">wickdata</span> <span class="kw">import</span> (
+    <span class="var">WickData</span>,
+    <span class="var">DataRequestBuilder</span>,
+    <span class="var">create_binance_config</span>,
+)
+
+<span class="kw">async def</span> <span class="fn">main</span>():
+    <span class="var">configs</span> <span class="op">=</span> {<span class="str">'binance'</span>: <span class="fn">create_binance_config</span>()}
+
+    <span class="kw">async with</span> <span class="fn">WickData</span>(<span class="var">configs</span>) <span class="kw">as</span> <span class="var">wd</span>:
+        <span class="var">dm</span> <span class="op">=</span> <span class="var">wd</span>.<span class="fn">get_data_manager</span>()
+
+        <span class="cm"># Build a fetch request</span>
+        <span class="var">request</span> <span class="op">=</span> (
+            <span class="var">DataRequestBuilder</span>.<span class="fn">create</span>()
+            .<span class="fn">with_exchange</span>(<span class="str">'binance'</span>)
+            .<span class="fn">with_symbol</span>(<span class="str">'BTC/USDT'</span>)
+            .<span class="fn">with_timeframe</span>(<span class="str">'1h'</span>)
+            .<span class="fn">with_last_days</span>(<span class="num">7</span>)
+            .<span class="fn">build</span>()
+        )
+
+        <span class="cm"># Fetch &amp; store candles</span>
+        <span class="var">stats</span> <span class="op">=</span> <span class="kw">await</span> <span class="var">dm</span>.<span class="fn">fetch_historical_data</span>(<span class="var">request</span>)
+        <span class="fn">print</span>(<span class="str">f"Fetched </span>{<span class="var">stats</span>.<span class="var">total_candles</span>}<span class="str"> candles"</span>)
+
+<span class="var">asyncio</span>.<span class="fn">run</span>(<span class="fn">main</span>())
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Streaming Code Example ── -->
+<section style="padding-top: 0;">
+  <div class="container">
+    <div class="code-layout" style="direction:rtl;">
+      <div style="direction:ltr;">
+        <div class="section-label">Streaming</div>
+        <div class="section-title">Stream millions of candles.</div>
+        <p class="section-subtitle" style="margin-bottom:40px;">
+          Process large datasets efficiently with memory-safe streaming. Perfect for backtesting engines and ML pipelines.
+        </p>
+        <div class="code-features">
+          <div class="code-feature">
+            <div class="code-feature-icon green">&#128202;</div>
+            <div>
+              <h4>Async Generators</h4>
+              <p>Iterate over batches with <code>async for</code>. Each batch is a list of candle objects with typed fields.</p>
+            </div>
+          </div>
+          <div class="code-feature">
+            <div class="code-feature-icon blue">&#128451;</div>
+            <div>
+              <h4>Multiple Output Modes</h4>
+              <p>Stream to callbacks, arrays, or buffers. Choose the pattern that fits your processing pipeline.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block" style="direction:ltr;">
+        <div class="code-header">
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+          <span class="code-filename">streaming_example.py</span>
+        </div>
+        <div class="code-body">
+<span class="cm"># Stream candles in batches of 500</span>
+<span class="var">streamer</span> <span class="op">=</span> <span class="var">wd</span>.<span class="fn">get_data_streamer</span>()
+
+<span class="var">query</span> <span class="op">=</span> (
+    <span class="var">CandleQueryBuilder</span>.<span class="fn">create</span>()
+    .<span class="fn">with_exchange</span>(<span class="str">'binance'</span>)
+    .<span class="fn">with_symbol</span>(<span class="str">'ETH/USDT'</span>)
+    .<span class="fn">with_timeframe</span>(<span class="str">'5m'</span>)
+    .<span class="fn">build</span>()
+)
+
+<span class="kw">async for</span> <span class="var">batch</span> <span class="kw">in</span> <span class="var">streamer</span>.<span class="fn">stream_candles</span>(
+    <span class="var">query</span>, <span class="var">batch_size</span><span class="op">=</span><span class="num">500</span>
+):
+    <span class="kw">for</span> <span class="var">candle</span> <span class="kw">in</span> <span class="var">batch</span>:
+        <span class="fn">process</span>(<span class="var">candle</span>.<span class="var">close</span>)
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Exchanges ── -->
+<section id="exchanges" style="text-align:center;">
+  <div class="container">
+    <div class="section-label">Exchanges</div>
+    <div class="section-title" style="max-width:100%;">100+ exchanges via CCXT.</div>
+    <p class="section-subtitle" style="margin:0 auto 8px;">
+      First-class helper configs for major exchanges. Connect to any CCXT-supported exchange with a single config object.
+    </p>
+  </div>
+  <div class="exchanges-marquee">
+    <div class="exchanges-track">
+      <div class="exchange-chip"><span class="dot" style="background:#f0b90b"></span> Binance</div>
+      <div class="exchange-chip"><span class="dot" style="background:#0052ff"></span> Coinbase</div>
+      <div class="exchange-chip"><span class="dot" style="background:#5741d9"></span> Kraken</div>
+      <div class="exchange-chip"><span class="dot" style="background:#f7a600"></span> Bybit</div>
+      <div class="exchange-chip"><span class="dot" style="background:#23af91"></span> KuCoin</div>
+      <div class="exchange-chip"><span class="dot" style="background:#2354e6"></span> OKX</div>
+      <div class="exchange-chip"><span class="dot" style="background:#1ce0c1"></span> Gate.io</div>
+      <div class="exchange-chip"><span class="dot" style="background:#17c491"></span> Bitstamp</div>
+      <div class="exchange-chip"><span class="dot" style="background:#3772ff"></span> Bitfinex</div>
+      <div class="exchange-chip"><span class="dot" style="background:#cf304a"></span> Huobi</div>
+      <div class="exchange-chip"><span class="dot" style="background:#00d4aa"></span> Gemini</div>
+      <div class="exchange-chip"><span class="dot" style="background:#6271eb"></span> Phemex</div>
+      <!-- duplicate set for seamless loop -->
+      <div class="exchange-chip"><span class="dot" style="background:#f0b90b"></span> Binance</div>
+      <div class="exchange-chip"><span class="dot" style="background:#0052ff"></span> Coinbase</div>
+      <div class="exchange-chip"><span class="dot" style="background:#5741d9"></span> Kraken</div>
+      <div class="exchange-chip"><span class="dot" style="background:#f7a600"></span> Bybit</div>
+      <div class="exchange-chip"><span class="dot" style="background:#23af91"></span> KuCoin</div>
+      <div class="exchange-chip"><span class="dot" style="background:#2354e6"></span> OKX</div>
+      <div class="exchange-chip"><span class="dot" style="background:#1ce0c1"></span> Gate.io</div>
+      <div class="exchange-chip"><span class="dot" style="background:#17c491"></span> Bitstamp</div>
+      <div class="exchange-chip"><span class="dot" style="background:#3772ff"></span> Bitfinex</div>
+      <div class="exchange-chip"><span class="dot" style="background:#cf304a"></span> Huobi</div>
+      <div class="exchange-chip"><span class="dot" style="background:#00d4aa"></span> Gemini</div>
+      <div class="exchange-chip"><span class="dot" style="background:#6271eb"></span> Phemex</div>
+    </div>
+  </div>
+  <div class="container" style="margin-top:48px;">
+    <div class="section-label" style="margin-top:32px;">Timeframes</div>
+    <div class="tf-grid">
+      <span class="tf-chip">1m</span>
+      <span class="tf-chip">3m</span>
+      <span class="tf-chip">5m</span>
+      <span class="tf-chip">15m</span>
+      <span class="tf-chip">30m</span>
+      <span class="tf-chip">1h</span>
+      <span class="tf-chip">2h</span>
+      <span class="tf-chip">4h</span>
+      <span class="tf-chip">6h</span>
+      <span class="tf-chip">8h</span>
+      <span class="tf-chip">12h</span>
+      <span class="tf-chip">1d</span>
+      <span class="tf-chip">3d</span>
+      <span class="tf-chip">1w</span>
+      <span class="tf-chip">1M</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Architecture ── -->
+<section id="architecture">
+  <div class="container">
+    <div style="text-align:center;">
+      <div class="section-label">Architecture</div>
+      <div class="section-title">Clean, modular design.</div>
+      <p class="section-subtitle" style="margin: 0 auto;">
+        Separation of concerns with clear layers. Every component is testable, replaceable, and well-documented.
+      </p>
+    </div>
+    <div class="arch-grid">
+      <div class="arch-card">
+        <h3>&#9670; Core</h3>
+        <p>The <code>WickData</code> entry point orchestrates lifecycle, data management, event emission, and streaming through a clean async context manager interface.</p>
+      </div>
+      <div class="arch-card">
+        <h3>&#9670; Builders</h3>
+        <p><code>DataRequestBuilder</code> and <code>CandleQueryBuilder</code> provide fluent, chainable APIs for constructing fetch requests and database queries with full validation.</p>
+      </div>
+      <div class="arch-card">
+        <h3>&#9670; Database</h3>
+        <p>Abstract interface with async SQLite implementation. Repository pattern for candle storage, automatic deduplication, and metadata tracking with efficient indexing.</p>
+      </div>
+      <div class="arch-card">
+        <h3>&#9670; Services</h3>
+        <p>Business logic layer with specialized services for data fetching coordination, input validation, gap analysis, and configurable retry strategies.</p>
+      </div>
+      <div class="arch-card">
+        <h3>&#9670; Exchanges</h3>
+        <p>CCXT adapter layer managing multi-exchange connections, rate limits, and API key authentication with pre-built configs for major exchanges.</p>
+      </div>
+      <div class="arch-card">
+        <h3>&#9670; Models</h3>
+        <p>Pydantic-validated data models for candles, configs, requests, gaps, timeframes, and statistics. Type-safe from end to end.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta">
+  <div class="container">
+    <h2>Start building today.</h2>
+    <p>Install WickData and fetch your first candles in under a minute.</p>
+    <div class="hero-actions">
+      <a href="https://github.com/h2337/wickdata" class="btn btn-primary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.694.825.576C20.565 21.795 24 17.295 24 12 24 5.37 18.63 0 12 0z"/></svg>
+        View on GitHub
+      </a>
+      <a href="https://pypi.org/project/wickdata/" class="btn btn-secondary" target="_blank" rel="noopener">
+        PyPI Package
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="container">
+    <p>&copy; 2025 WickData &middot; MIT License</p>
+    <div class="footer-links">
+      <a href="https://github.com/h2337/wickdata" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/wickdata/" target="_blank" rel="noopener">PyPI</a>
+      <a href="https://github.com/h2337/wickdata/blob/master/LICENSE" target="_blank" rel="noopener">License</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Generate random candlestick chart in hero
+(function() {
+  const container = document.getElementById('candle-chart');
+  const count = 40;
+  let price = 50;
+
+  for (let i = 0; i < count; i++) {
+    const change = (Math.random() - 0.48) * 10;
+    const open = price;
+    const close = price + change;
+    price = close;
+
+    const high = Math.max(open, close) + Math.random() * 6;
+    const low = Math.min(open, close) - Math.random() * 6;
+
+    const isGreen = close >= open;
+    const bodyH = Math.max(Math.abs(close - open) * 1.2, 4);
+    const wickTopH = (high - Math.max(open, close)) * 1.2;
+    const wickBotH = (Math.min(open, close) - low) * 1.2;
+
+    const candle = document.createElement('div');
+    candle.className = 'candle ' + (isGreen ? 'green' : 'red');
+    candle.style.animationDelay = (i * 0.03) + 's';
+
+    candle.innerHTML =
+      '<div class="wick" style="height:' + wickTopH + 'px"></div>' +
+      '<div class="body" style="height:' + bodyH + 'px"></div>' +
+      '<div class="wick" style="height:' + wickBotH + 'px"></div>';
+
+    container.appendChild(candle);
+  }
+})();
+</script>
+
+</body>
+</html>

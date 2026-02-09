@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>rssnix — Terminal RSS Reader</title>
+  <meta name="description" content="A fast, minimal command-line RSS feed reader written in Go. Read your feeds in vim, ranger, or any editor.">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0e17;
+      --bg-card: #111827;
+      --bg-code: #0d1117;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --accent: #3b82f6;
+      --accent-dim: #1d4ed8;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --green: #22c55e;
+      --yellow: #eab308;
+      --purple: #a78bfa;
+      --cyan: #22d3ee;
+      --red: #f87171;
+      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, Monaco, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* --- NAV --- */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: rgba(10, 14, 23, 0.8);
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav .inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0.8rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    nav .logo {
+      font-family: var(--mono);
+      font-weight: 700;
+      font-style: italic;
+      font-size: 1.25rem;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-decoration: none;
+    }
+
+    nav .links { display: flex; gap: 1.75rem; align-items: center; }
+
+    nav .links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+
+    nav .links a:hover { color: var(--text); }
+
+    nav .links .gh {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.85rem;
+      color: var(--text);
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    nav .links .gh:hover { border-color: var(--accent); background: var(--accent-glow); }
+
+    nav .links .gh svg { width: 18px; height: 18px; fill: var(--text); }
+
+    /* --- HERO --- */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 7rem 1.5rem 4rem;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent-glow);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 100px;
+      padding: 0.35rem 1rem;
+      font-size: 0.8rem;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-family: var(--mono);
+      font-size: clamp(3rem, 8vw, 5.5rem);
+      font-weight: 800;
+      font-style: italic;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero .tagline {
+      font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+      color: var(--text-dim);
+      max-width: 580px;
+      margin-bottom: 2.25rem;
+      line-height: 1.6;
+    }
+
+    .hero .install-box {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 3rem;
+      position: relative;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .hero .install-box:hover { border-color: var(--accent); }
+
+    .hero .install-box code {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .hero .install-box code .prompt { color: var(--green); }
+    .hero .install-box code .cmd { color: var(--yellow); }
+
+    .hero .install-box .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      padding: 0.3rem 0.5rem;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      display: flex;
+      align-items: center;
+    }
+
+    .hero .install-box .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    .hero .install-box .copy-btn svg { width: 16px; height: 16px; }
+
+    .hero .install-box .tooltip {
+      position: absolute;
+      top: -2rem;
+      right: 0;
+      background: var(--green);
+      color: #000;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .hero .install-box .tooltip.show { opacity: 1; }
+
+    /* --- DEMO --- */
+    .demo {
+      max-width: 780px;
+      margin: 0 auto;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5), 0 0 60px var(--accent-glow);
+      position: relative;
+    }
+
+    .demo .bar {
+      background: #1a1a2e;
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .demo .bar span {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .demo .bar span:nth-child(1) { background: #ff5f57; }
+    .demo .bar span:nth-child(2) { background: #febc2e; }
+    .demo .bar span:nth-child(3) { background: #28c840; }
+
+    .demo img {
+      display: block;
+      width: 100%;
+      background: #000;
+    }
+
+    /* --- SECTION COMMON --- */
+    section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 6rem 1.5rem;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-desc {
+      color: var(--text-dim);
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin-bottom: 3rem;
+    }
+
+    /* --- FEATURES --- */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .feature:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .feature .icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature h3 { font-size: 1.1rem; margin-bottom: 0.5rem; font-weight: 600; }
+    .feature p { color: var(--text-dim); font-size: 0.92rem; line-height: 1.6; }
+
+    .icon-blue { background: rgba(59, 130, 246, 0.12); color: var(--accent); }
+    .icon-green { background: rgba(34, 197, 94, 0.12); color: var(--green); }
+    .icon-yellow { background: rgba(234, 179, 8, 0.12); color: var(--yellow); }
+    .icon-purple { background: rgba(167, 139, 250, 0.12); color: var(--purple); }
+    .icon-cyan { background: rgba(34, 211, 238, 0.12); color: var(--cyan); }
+    .icon-red { background: rgba(248, 113, 113, 0.12); color: var(--red); }
+
+    /* --- COMMANDS --- */
+    .commands {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+
+    .cmd-card {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      transition: border-color 0.2s;
+    }
+
+    .cmd-card:hover { border-color: var(--accent); }
+
+    .cmd-card .cmd-head {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .cmd-card .cmd-name { color: var(--green); font-weight: 600; }
+    .cmd-card .cmd-arg { color: var(--text-dim); }
+    .cmd-card .cmd-alias { color: var(--purple); font-size: 0.8rem; }
+    .cmd-card .cmd-desc { color: var(--text-dim); font-size: 0.88rem; line-height: 1.5; }
+
+    /* --- CONFIG --- */
+    .config-block {
+      max-width: 620px;
+    }
+
+    .config-block pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      line-height: 1.8;
+    }
+
+    .config-block .path {
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      background: var(--bg-card);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .syn-section { color: var(--purple); }
+    .syn-key { color: var(--cyan); }
+    .syn-eq { color: var(--text-dim); }
+    .syn-val { color: var(--green); }
+    .syn-url { color: var(--yellow); }
+    .syn-comment { color: #475569; font-style: italic; }
+
+    /* --- INSTALL --- */
+    .install-methods {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .install-method {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+    }
+
+    .install-method h3 {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .install-method pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+
+    .install-method .pmt { color: var(--green); }
+    .install-method .cm { color: var(--yellow); }
+
+    /* --- FOOTER --- */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 1.5rem;
+      text-align: center;
+    }
+
+    footer .inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    footer .foot-logo {
+      font-family: var(--mono);
+      font-weight: 700;
+      font-style: italic;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    footer p {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    footer .foot-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    footer .foot-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+
+    footer .foot-links a:hover { color: var(--accent); }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 768px) {
+      nav .links a.hide-mobile { display: none; }
+      .features-grid, .commands, .install-methods { grid-template-columns: 1fr; }
+      section { padding: 4rem 1.25rem; }
+      .hero { padding: 6rem 1.25rem 3rem; }
+      .hero .install-box { flex-direction: column; gap: 0.75rem; }
+      .hero .install-box code { font-size: 0.82rem; }
+    }
+
+    /* --- ANIMATIONS --- */
+    @media (prefers-reduced-motion: no-preference) {
+      .fade-in {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.6s ease, transform 0.6s ease;
+      }
+
+      .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fade-in { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="inner">
+    <a href="#" class="logo">rssnix</a>
+    <div class="links">
+      <a href="#features" class="hide-mobile">Features</a>
+      <a href="#commands" class="hide-mobile">Commands</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/h2337/rssnix" class="gh" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="badge">v0.4.1 &mdash; MIT Licensed</div>
+  <h1>rssnix</h1>
+  <p class="tagline">A fast, minimal RSS feed reader for the terminal. Read your feeds in vim, ranger, or any editor you love.</p>
+
+  <div class="install-box" onclick="copyInstall()" role="button" tabindex="0" aria-label="Copy install command">
+    <code><span class="prompt">$</span> <span class="cmd">go install github.com/h2337/rssnix@latest</span></code>
+    <button class="copy-btn" aria-label="Copy to clipboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    </button>
+    <span class="tooltip" id="copyTooltip">Copied!</span>
+  </div>
+
+  <div class="demo fade-in">
+    <div class="bar"><span></span><span></span><span></span></div>
+    <img src="demo.gif" alt="rssnix demo showing feed management in the terminal" loading="lazy">
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <p class="section-label fade-in">Features</p>
+  <h2 class="section-title fade-in">Everything you need, nothing you don't</h2>
+  <p class="section-desc fade-in">rssnix stores articles as plain text files on your filesystem. No databases, no cloud sync, no electron apps. Just your feeds and your favorite editor.</p>
+
+  <div class="features-grid">
+    <div class="feature fade-in">
+      <div class="icon icon-green">&#9889;</div>
+      <h3>Parallel Fetching</h3>
+      <p>Feeds are updated concurrently using goroutines. Hundreds of feeds update in seconds, not minutes.</p>
+    </div>
+    <div class="feature fade-in">
+      <div class="icon icon-blue">&#128196;</div>
+      <h3>Plain Text Storage</h3>
+      <p>Articles are saved as files on disk. Browse, search, and script them with standard Unix tools.</p>
+    </div>
+    <div class="feature fade-in">
+      <div class="icon icon-purple">&#128230;</div>
+      <h3>OPML Import</h3>
+      <p>Migrate from any RSS reader. Import feeds from local OPML files or remote URLs with a single command.</p>
+    </div>
+    <div class="feature fade-in">
+      <div class="icon icon-yellow">&#9733;</div>
+      <h3>New Articles Tracking</h3>
+      <p>Newly downloaded articles are symlinked into a "new" folder, so you always know what's fresh.</p>
+    </div>
+    <div class="feature fade-in">
+      <div class="icon icon-cyan">&#128736;</div>
+      <h3>Use Your Editor</h3>
+      <p>Read feeds in vim, ranger, or any tool you configure. rssnix fits into your existing workflow.</p>
+    </div>
+    <div class="feature fade-in">
+      <div class="icon icon-red">&#127760;</div>
+      <h3>Cross-Platform</h3>
+      <p>Runs on Linux, macOS, and Windows. Built with Go for easy installation on any system.</p>
+    </div>
+  </div>
+</section>
+
+<!-- COMMANDS -->
+<section id="commands">
+  <p class="section-label fade-in">Commands</p>
+  <h2 class="section-title fade-in">Simple by design</h2>
+  <p class="section-desc fade-in">Six commands. That's all. Each does one thing and does it well.</p>
+
+  <div class="commands">
+    <div class="cmd-card fade-in">
+      <div class="cmd-head">
+        <span class="cmd-name">update</span>
+        <span class="cmd-arg">[feed&hellip;]</span>
+        <span class="cmd-alias">alias: u</span>
+      </div>
+      <p class="cmd-desc">Fetch new articles for given feeds, or all feeds if none specified. Only downloads articles you haven't seen before.</p>
+    </div>
+    <div class="cmd-card fade-in">
+      <div class="cmd-head">
+        <span class="cmd-name">open</span>
+        <span class="cmd-arg">[feed]</span>
+        <span class="cmd-alias">alias: o</span>
+      </div>
+      <p class="cmd-desc">Open a feed's directory in your configured viewer. Opens the root feed directory if no feed is given.</p>
+    </div>
+    <div class="cmd-card fade-in">
+      <div class="cmd-head">
+        <span class="cmd-name">add</span>
+        <span class="cmd-arg">[name] [url]</span>
+        <span class="cmd-alias">alias: a</span>
+      </div>
+      <p class="cmd-desc">Add a new RSS feed to your configuration with the given name and URL.</p>
+    </div>
+    <div class="cmd-card fade-in">
+      <div class="cmd-head">
+        <span class="cmd-name">import</span>
+        <span class="cmd-arg">[path|url]</span>
+        <span class="cmd-alias">alias: i</span>
+      </div>
+      <p class="cmd-desc">Import feeds from an OPML file&mdash;either a local path or a remote URL.</p>
+    </div>
+    <div class="cmd-card fade-in">
+      <div class="cmd-head">
+        <span class="cmd-name">config</span>
+        <span class="cmd-alias">alias: c</span>
+      </div>
+      <p class="cmd-desc">Open your configuration file in <code>$EDITOR</code> for quick manual editing.</p>
+    </div>
+    <div class="cmd-card fade-in">
+      <div class="cmd-head">
+        <span class="cmd-name">refetch</span>
+        <span class="cmd-arg">[feed&hellip;]</span>
+        <span class="cmd-alias">alias: r</span>
+      </div>
+      <p class="cmd-desc">Delete and re-download all articles for the given feeds, or every feed if none specified.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CONFIG -->
+<section id="config">
+  <p class="section-label fade-in">Configuration</p>
+  <h2 class="section-title fade-in">One file, zero complexity</h2>
+  <p class="section-desc fade-in">Configure rssnix with a simple INI file at <span class="path">~/.config/rssnix/config.ini</span></p>
+
+  <div class="config-block fade-in">
+    <pre><span class="syn-comment"># Choose your viewer and feed directory</span>
+<span class="syn-section">[settings]</span>
+<span class="syn-key">viewer</span> <span class="syn-eq">=</span> <span class="syn-val">vim</span>
+<span class="syn-key">feed_directory</span> <span class="syn-eq">=</span> <span class="syn-val">~/rssnix</span>
+
+<span class="syn-comment"># Add feeds as name = url pairs</span>
+<span class="syn-section">[feeds]</span>
+<span class="syn-key">CNN-Tech</span> <span class="syn-eq">=</span> <span class="syn-url">http://rss.cnn.com/rss/edition_technology.rss</span>
+<span class="syn-key">HackerNews</span> <span class="syn-eq">=</span> <span class="syn-url">https://news.ycombinator.com/rss</span>
+<span class="syn-key">LWN</span> <span class="syn-eq">=</span> <span class="syn-url">https://lwn.net/headlines/rss</span></pre>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install">
+  <p class="section-label fade-in">Installation</p>
+  <h2 class="section-title fade-in">Up and running in seconds</h2>
+  <p class="section-desc fade-in">Requires Go 1.19 or later. Pick your preferred method.</p>
+
+  <div class="install-methods">
+    <div class="install-method fade-in">
+      <h3>&#128229; Go Install</h3>
+      <pre><span class="pmt">$</span> <span class="cm">go install github.com/h2337/rssnix@latest</span></pre>
+    </div>
+    <div class="install-method fade-in">
+      <h3>&#128268; Build from Source</h3>
+      <pre><span class="pmt">$</span> <span class="cm">git clone https://github.com/h2337/rssnix --depth=1</span>
+<span class="pmt">$</span> <span class="cm">cd rssnix</span>
+<span class="pmt">$</span> <span class="cm">go install</span></pre>
+    </div>
+    <div class="install-method fade-in">
+      <h3>&#128230; GitHub Releases</h3>
+      <pre>Pre-built binaries for Linux, macOS,
+and Windows are available on the
+<a href="https://github.com/h2337/rssnix/releases" style="color: var(--accent)">GitHub Releases</a> page.</pre>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START -->
+<section>
+  <p class="section-label fade-in">Quick Start</p>
+  <h2 class="section-title fade-in">Three commands to your first feed</h2>
+  <div class="config-block fade-in">
+    <pre><span class="syn-comment"># Add a feed</span>
+<span class="pmt">$</span> <span class="cm">rssnix add HackerNews https://news.ycombinator.com/rss</span>
+
+<span class="syn-comment"># Fetch articles</span>
+<span class="pmt">$</span> <span class="cm">rssnix update</span>
+
+<span class="syn-comment"># Read in your editor</span>
+<span class="pmt">$</span> <span class="cm">rssnix open HackerNews</span></pre>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="inner">
+    <span class="foot-logo">rssnix</span>
+    <div class="foot-links">
+      <a href="https://github.com/h2337/rssnix" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/h2337/rssnix/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/h2337/rssnix/blob/master/LICENSE" target="_blank" rel="noopener">MIT License</a>
+    </div>
+    <p>Built with Go. Made for the terminal.</p>
+  </div>
+</footer>
+
+<script>
+  function copyInstall() {
+    navigator.clipboard.writeText('go install github.com/h2337/rssnix@latest').then(function() {
+      var tip = document.getElementById('copyTooltip');
+      tip.classList.add('show');
+      setTimeout(function() { tip.classList.remove('show'); }, 1500);
+    });
+  }
+
+  // Intersection Observer for fade-in animations
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.fade-in').forEach(function(el) {
+      observer.observe(el);
+    });
+  } else {
+    document.querySelectorAll('.fade-in').forEach(function(el) {
+      el.classList.add('visible');
+    });
+  }
+</script>
+
+</body>
+</html>

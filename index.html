@@ -29,21 +29,39 @@
     }
 
     nav {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
+      width: 100%;
+      max-width: 700px;
+      padding: 0 1rem;
     }
 
     nav a {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
       text-decoration: none;
       color: #e8d5b7;
-      font-size: 2.5rem;
-      padding: 1rem 2rem;
+      font-size: 1.6rem;
+      padding: 1rem 1.5rem;
       border: 2px solid #a08060;
       border-radius: 12px;
       cursor: pointer;
       transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
+    }
+
+    @media (max-width: 600px) {
+      nav {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 380px) {
+      nav {
+        grid-template-columns: 1fr;
+      }
     }
 
     nav a:hover {
@@ -80,13 +98,17 @@
     <a href="https://github.com/h2337" class="github-link">github</a>
     <a href="mailto:h2337@saturnine.cc" class="github-link">email</a>
   </div>
+  <h2>projects</h2>
   <nav>
     <a href="./tsink">tsink</a>
     <a href="./cppq">cppq</a>
     <a href="./clex-cparse">clex/cparse</a>
     <a href="./klint">klint</a>
+    <a href="./wickdata">wickdata</a>
     <a href="./connmap">connmap</a>
     <a href="./ghostscan">ghostscan</a>
+    <a href="./sysm">sysm</a>
+    <a href="./rssnix">rssnix</a>
   </nav>
 </body>
 </html>
