@@ -18,8 +18,8 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      background-color: #fafafa;
-      color: #333;
+      background: radial-gradient(ellipse at center, #1a1a2e, #0a0a14);
+      color: #e8d5b7;
       gap: 2rem;
     }
 
@@ -37,18 +37,19 @@
     nav a {
       display: block;
       text-decoration: none;
-      color: #333;
+      color: #e8d5b7;
       font-size: 2.5rem;
       padding: 1rem 2rem;
-      border: 2px solid #333;
+      border: 2px solid #a08060;
       border-radius: 12px;
       cursor: pointer;
-      transition: background-color 0.2s, color 0.2s, transform 0.15s;
+      transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
     }
 
     nav a:hover {
-      background-color: #333;
-      color: #fff;
+      background-color: #a08060;
+      color: #0a0a14;
+      border-color: #e8d5b7;
       transform: translateY(-2px);
     }
 
