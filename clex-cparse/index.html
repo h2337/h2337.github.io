@@ -795,13 +795,13 @@ footer .footer-links a:hover { color: var(--blue-3); }
       <div class="feature-card">
         <div class="feature-icon amber">&#x26A1;</div>
         <h3>Predictable Performance</h3>
-        <p>Dynamic, resizable data structures throughout. No fixed-size arrays or arbitrary limits on grammar complexity.</p>
+        <p>Dynamic NFA transitions in clex and symbol-ID indexed action/goto tables in cparse remove fixed slot limits and speed parse-time lookups.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon blue">&#x1F6E1;</div>
         <h3>Safe Failure Modes</h3>
-        <p>Lexer and parser operations return typed status codes. Structured errors include exact position, expected token(s), and offending lexeme for fast debugging.</p>
+        <p>Lexer and parser operations return typed status codes. Structured errors include exact position, expected token(s), offending lexeme, and detailed LR conflict diagnostics during parser generation.</p>
       </div>
 
       <div class="feature-card">
@@ -837,6 +837,7 @@ footer .footer-links a:hover { color: var(--blue-3); }
         <ul class="highlight-list">
           <li><span class="check">&#x2713;</span> Compact runtime API &mdash; no code generation required</li>
           <li><span class="check">&#x2713;</span> Regex: grouping, alternation, character classes, ranges, <code>* + ?</code></li>
+          <li><span class="check">&#x2713;</span> Dynamic NFA transition storage &mdash; no fixed per-node transition cap</li>
           <li><span class="check">&#x2713;</span> Whitespace between tokens is skipped automatically</li>
           <li><span class="check">&#x2713;</span> Up to 1024 token rules (configurable via <code>CLEX_MAX_RULES</code>)</li>
           <li><span class="check">&#x2713;</span> NFA visualization via Graphviz output</li>
@@ -944,10 +945,10 @@ footer .footer-links a:hover { color: var(--blue-3); }
           <li><span class="check">&#x2713;</span> LR(1) construction with optional LALR(1) state merging</li>
           <li><span class="check">&#x2713;</span> Intuitive textual grammar format</li>
           <li><span class="check">&#x2713;</span> Automatic First/Follow set computation</li>
-          <li><span class="check">&#x2713;</span> Helpful diagnostics for malformed grammars</li>
+          <li><span class="check">&#x2713;</span> Structured LR conflict diagnostics with state/item/action details</li>
           <li><span class="check">&#x2713;</span> Typed parse statuses + structured parser errors</li>
           <li><span class="check">&#x2713;</span> Parse tree production with source spans on each node</li>
-          <li><span class="check">&#x2713;</span> Dynamic data structures &mdash; no fixed-size limits</li>
+          <li><span class="check">&#x2713;</span> Symbol-ID indexed action/goto tables + dynamic internals (no fixed-size limits)</li>
           <li><span class="check">&#x2713;</span> Ships with <code>libcparse.a</code> static library build</li>
         </ul>
       </div>
