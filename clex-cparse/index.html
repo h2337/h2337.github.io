@@ -801,7 +801,7 @@ footer .footer-links a:hover { color: var(--blue-3); }
       <div class="feature-card">
         <div class="feature-icon blue">&#x1F6E1;</div>
         <h3>Safe Failure Modes</h3>
-        <p>Invalid rules return <code>false</code>. The lexer yields <code>CLEX_TOKEN_EOF</code> at end-of-input and <code>CLEX_TOKEN_ERROR</code> on lexical failures. Malformed grammars emit helpful diagnostics to stderr.</p>
+        <p>Lexer and parser operations return typed status codes. Structured errors include exact position, expected token(s), and offending lexeme for fast debugging.</p>
       </div>
 
       <div class="feature-card">
@@ -835,12 +835,13 @@ footer .footer-links a:hover { color: var(--blue-3); }
       <div>
         <h3 style="font-size:1.1rem; margin-bottom:1.25rem;">Highlights</h3>
         <ul class="highlight-list">
-          <li><span class="check">&#x2713;</span> Simple 6-function API &mdash; no code generation required</li>
+          <li><span class="check">&#x2713;</span> Compact runtime API &mdash; no code generation required</li>
           <li><span class="check">&#x2713;</span> Regex: grouping, alternation, character classes, ranges, <code>* + ?</code></li>
           <li><span class="check">&#x2713;</span> Whitespace between tokens is skipped automatically</li>
           <li><span class="check">&#x2713;</span> Up to 1024 token rules (configurable via <code>CLEX_MAX_RULES</code>)</li>
           <li><span class="check">&#x2713;</span> NFA visualization via Graphviz output</li>
-          <li><span class="check">&#x2713;</span> Explicit sentinels: <code>CLEX_TOKEN_EOF</code> and <code>CLEX_TOKEN_ERROR</code></li>
+          <li><span class="check">&#x2713;</span> Typed status codes + structured lexer errors (<code>clexError</code>)</li>
+          <li><span class="check">&#x2713;</span> Token source spans include byte offset + line/column</li>
         </ul>
       </div>
 
@@ -849,9 +850,10 @@ footer .footer-links a:hover { color: var(--blue-3); }
           <thead><tr><th>Function</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td>clexInit()</td><td>Allocate and return a new lexer</td></tr>
-            <tr><td>clexRegisterKind()</td><td>Register a regex pattern for a token kind</td></tr>
+            <tr><td>clexRegisterKind()</td><td>Register a regex pattern for a token kind (returns <code>clexStatus</code>)</td></tr>
             <tr><td>clexReset()</td><td>Point lexer at a new input string</td></tr>
-            <tr><td>clex()</td><td>Return the next matched token</td></tr>
+            <tr><td>clex()</td><td>Lex the next token into an out-parameter (returns <code>clexStatus</code>)</td></tr>
+            <tr><td>clexGetLastError()</td><td>Retrieve structured lexer error details</td></tr>
             <tr><td>clexDeleteKinds()</td><td>Clear all rules for reuse</td></tr>
             <tr><td>clexLexerDestroy()</td><td>Free all lexer resources</td></tr>
           </tbody>
@@ -896,15 +898,21 @@ footer .footer-links a:hover { color: var(--blue-3); }
     <span class="fn">clexReset</span>(lexer, <span class="str">"int main()"</span>);
 
     <span class="tp">clexToken</span> tok;
-    <span class="kw">while</span> ((tok = <span class="fn">clex</span>(lexer)).kind != <span class="tp">CLEX_TOKEN_EOF</span>) {
-        <span class="kw">if</span> (tok.kind == <span class="tp">CLEX_TOKEN_ERROR</span>) {
-            <span class="fn">fprintf</span>(<span class="id">stderr</span>, <span class="str">"lexical error near '%s'\n"</span>, tok.lexeme ? tok.lexeme : <span class="str">""</span>);
-            <span class="fn">free</span>(tok.lexeme);
+    <span class="fn">clexTokenInit</span>(&tok);
+    <span class="kw">while</span> (<span class="num">1</span>) {
+        <span class="tp">clexStatus</span> st = <span class="fn">clex</span>(lexer, &tok);
+        <span class="kw">if</span> (st == <span class="tp">CLEX_STATUS_EOF</span>) <span class="kw">break</span>;
+        <span class="kw">if</span> (st != <span class="tp">CLEX_STATUS_OK</span>) {
+            <span class="kw">const</span> <span class="tp">clexError</span> *err = <span class="fn">clexGetLastError</span>(lexer);
+            <span class="fn">fprintf</span>(<span class="id">stderr</span>, <span class="str">"lexical error at %zu:%zu near '%s'\n"</span>,
+                    err->position.line, err->position.column,
+                    err->offending_lexeme ? err->offending_lexeme : <span class="str">""</span>);
             <span class="kw">break</span>;
         }
-        <span class="fn">printf</span>(<span class="str">"kind=%d  lexeme='%s'\n"</span>, tok.kind, tok.lexeme);
-        <span class="fn">free</span>(tok.lexeme);
+        <span class="fn">printf</span>(<span class="str">"kind=%d lexeme='%s' @ %zu:%zu\n"</span>, tok.kind, tok.lexeme,
+               tok.span.start.line, tok.span.start.column);
     }
+    <span class="fn">clexTokenClear</span>(&tok);
 
     <span class="fn">clexLexerDestroy</span>(lexer);
 }</pre>
@@ -937,7 +945,8 @@ footer .footer-links a:hover { color: var(--blue-3); }
           <li><span class="check">&#x2713;</span> Intuitive textual grammar format</li>
           <li><span class="check">&#x2713;</span> Automatic First/Follow set computation</li>
           <li><span class="check">&#x2713;</span> Helpful diagnostics for malformed grammars</li>
-          <li><span class="check">&#x2713;</span> Parse tree production with full traversal support</li>
+          <li><span class="check">&#x2713;</span> Typed parse statuses + structured parser errors</li>
+          <li><span class="check">&#x2713;</span> Parse tree production with source spans on each node</li>
           <li><span class="check">&#x2713;</span> Dynamic data structures &mdash; no fixed-size limits</li>
           <li><span class="check">&#x2713;</span> Ships with <code>libcparse.a</code> static library build</li>
         </ul>
@@ -950,8 +959,9 @@ footer .footer-links a:hover { color: var(--blue-3); }
             <tr><td>cparseGrammar()</td><td>Parse a grammar string into internal representation</td></tr>
             <tr><td>cparseCreateLR1Parser()</td><td>Build an LR(1) parser from a grammar and token-name map (array + count)</td></tr>
             <tr><td>cparseCreateLALR1Parser()</td><td>Build an LALR(1) parser (merged states) from a token-name map (array + count)</td></tr>
-            <tr><td>cparseAccept()</td><td>Check whether input belongs to the grammar</td></tr>
-            <tr><td>cparse()</td><td>Parse input and return the parse tree</td></tr>
+            <tr><td>cparseAccept()</td><td>Validate input (returns <code>cparseStatus</code>)</td></tr>
+            <tr><td>cparse()</td><td>Parse input into an out-parameter parse tree (returns <code>cparseStatus</code>)</td></tr>
+            <tr><td>cparseGetLastError()</td><td>Retrieve parser error details: position, expected terminals, offending lexeme</td></tr>
             <tr><td>cparseFreeParseTree()</td><td>Recursively release a parse tree</td></tr>
             <tr><td>cparseFreeParser()</td><td>Release parser state</td></tr>
             <tr><td>cparseFreeGrammar()</td><td>Release grammar data structures</td></tr>
@@ -998,6 +1008,7 @@ Factor   <span class="op">-></span> NUMBER <span class="op">|</span> LPAREN Expr
 <pre><span class="kw">typedef struct</span> <span class="tp">ParseTreeNode</span> {
     <span class="tp">char</span>     *value;      <span class="cm">/* grammar symbol       */</span>
     <span class="tp">clexToken</span> token;      <span class="cm">/* matched token (term) */</span>
+    <span class="tp">clexSourceSpan</span> span;  <span class="cm">/* node source range    */</span>
     <span class="tp">PtrVec</span>    children;   <span class="cm">/* ParseTreeNode*       */</span>
 } <span class="tp">ParseTreeNode</span>;</pre>
         </div>
@@ -1072,10 +1083,15 @@ Factor   <span class="op">-></span> NUMBER <span class="op">|</span> LPAREN Expr
     <span class="cm">/* ── Step 4: Parse input ───────────────────────────────── */</span>
     <span class="kw">const</span> <span class="tp">char</span> *input = <span class="str">"8 + 5 * 2"</span>;
 
-    <span class="kw">if</span> (<span class="fn">cparseAccept</span>(parser, input)) {
-        <span class="tp">ParseTreeNode</span> *tree = <span class="fn">cparse</span>(parser, input);
-        <span class="cm">/* ... traverse or inspect the parse tree ... */</span>
+    <span class="kw">if</span> (<span class="fn">cparseAccept</span>(parser, input) == <span class="tp">CPARSE_STATUS_OK</span>) {
+        <span class="tp">ParseTreeNode</span> *tree = <span class="kw">NULL</span>;
+        <span class="kw">if</span> (<span class="fn">cparse</span>(parser, input, &tree) == <span class="tp">CPARSE_STATUS_OK</span>) {
+            <span class="cm">/* ... traverse or inspect the parse tree ... */</span>
+        }
         <span class="fn">cparseFreeParseTree</span>(tree);
+    } <span class="kw">else</span> {
+        <span class="kw">const</span> <span class="tp">cparseError</span> *err = <span class="fn">cparseGetLastError</span>(parser);
+        <span class="cm">/* err->position, err->expected_tokens, err->offending_lexeme */</span>
     }
 
     <span class="cm">/* ── Cleanup ────────────────────────────────────────────── */</span>
