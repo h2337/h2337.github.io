@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>klint - Linux Kernel Security Scanner</title>
+  <meta name="description" content="klint is a single-binary, one-shot Linux incident response scanner. Detect hidden kernel modules, rootkits, and compromised system state.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="nav-logo-icon">&gt;_</span>
+        <span class="nav-logo-text">klint</span>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#scanners">Scanners</a></li>
+        <li><a href="#usage">Usage</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#installation">Installation</a></li>
+        <li><a href="https://github.com" class="nav-github" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="hero-bg"></div>
+    <div class="container hero-content">
+      <div class="hero-text">
+        <div class="hero-badge">Linux Incident Response</div>
+        <h1 class="hero-title">
+          <span class="hero-title-accent">&gt;_</span> klint
+        </h1>
+        <p class="hero-tagline">Linux Kernel Security Scanner</p>
+        <p class="hero-desc">
+          A single-binary, one-shot incident response scanner written in C++23.
+          Deploy into restricted environments with zero dependencies and detect hidden
+          kernel modules, rootkits, compromised syscall tables, and more.
+        </p>
+        <div class="hero-actions">
+          <a href="#scanners" class="btn btn-primary">View Scanners</a>
+          <a href="#installation" class="btn btn-secondary">Get Started</a>
+        </div>
+      </div>
+      <div class="hero-terminal" id="hero-terminal">
+        <div class="terminal-bar">
+          <span class="terminal-dot terminal-dot--red"></span>
+          <span class="terminal-dot terminal-dot--yellow"></span>
+          <span class="terminal-dot terminal-dot--green"></span>
+          <span class="terminal-title">root@incident ~ #</span>
+        </div>
+        <div class="terminal-body">
+          <div class="terminal-line">
+            <span class="terminal-prompt">$</span>
+            <span class="terminal-cmd" id="terminal-cmd"></span><span class="terminal-cursor" id="terminal-cursor">|</span>
+          </div>
+          <div class="terminal-output" id="terminal-output"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="container">
+      <h2 class="section-title">Features</h2>
+      <p class="section-subtitle">Built for real-world incident response</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <h3>Modular Scanners</h3>
+          <p>8 self-registering scanners covering kernel modules, processes, network, syscalls, entrypoints, and BPF. Add new scanners with zero framework changes.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3>Structured Output</h3>
+          <p>Machine-readable JSON and human-friendly colored text output. Structured findings with severity levels, details, and key-value evidence.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3>Per-Scanner Timeouts</h3>
+          <p>Each scanner runs in a forked child process with a configurable timeout. One hung scanner never blocks the rest of the assessment.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Static Binary</h3>
+          <p>Build a fully static binary with no runtime dependencies beyond libc. Deploy via SCP into compromised environments with no package manager needed.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
+          </div>
+          <h3>Root-Level Detection</h3>
+          <p>Requires root privileges for deep kernel inspection. Accesses /proc/kcore, kernel symbol tables, cgroups, and raw network socket state.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          </div>
+          <h3>Meaningful Exit Codes</h3>
+          <p>Exit 0 when clean, 1 when findings detected, 2 on errors. Designed for automation, CI pipelines, and scripted incident response workflows.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scanners -->
+  <section class="section section-alt" id="scanners">
+    <div class="container">
+      <h2 class="section-title">Scanners</h2>
+      <p class="section-subtitle">8 specialized detectors for kernel-level threats</p>
+      <div class="scanners-grid">
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">hidden_lkm</h3>
+            <span class="badge badge-kernel">kernel</span>
+          </div>
+          <p class="scanner-desc">Detects hidden Loadable Kernel Modules by comparing module visibility across <code>/proc/modules</code>, <code>/sys/module</code>, and <code>/proc/kallsyms</code>. Identifies modules present in kallsyms but missing from procfs/sysfs.</p>
+          <div class="scanner-meta">
+            <span class="scanner-severity"><span class="dot dot-critical"></span> Critical on hidden modules</span>
+          </div>
+        </div>
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">hidden_processes</h3>
+            <span class="badge badge-process">process</span>
+          </div>
+          <p class="scanner-desc">Discovers hidden processes using multi-view cross-checks: <code>/proc</code> enumeration, <code>kill(0)</code> probing, cgroup task files, and <code>/proc/loadavg</code> analysis. Revalidation snapshots eliminate transient race conditions.</p>
+          <div class="scanner-meta">
+            <span class="scanner-severity"><span class="dot dot-critical"></span> Critical on persistent hidden PIDs</span>
+          </div>
+        </div>
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">hidden_network_sockets</h3>
+            <span class="badge badge-network">network</span>
+          </div>
+          <p class="scanner-desc">Detects hidden or redirected network sockets by comparing <code>/proc/net</code> tables, netlink diagnostics via <code>ss</code>, and process file descriptor scanning. Two-snapshot validation reduces false positives.</p>
+          <div class="scanner-meta">
+            <span class="scanner-req">Requires: <code>ss</code></span>
+            <span class="scanner-severity"><span class="dot dot-critical"></span> Critical on hidden sockets</span>
+          </div>
+        </div>
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">kernel_entrypoint_integrity</h3>
+            <span class="badge badge-kernel">kernel</span>
+          </div>
+          <p class="scanner-desc">Validates syscall entrypoints by reading MSRs (<code>IA32_LSTAR</code>, <code>IA32_CSTAR</code>, <code>IA32_SYSENTER_EIP</code>) and IDT vectors via <code>/proc/kcore</code>. Detects entrypoint redirection to module code or trampolines. x86_64-specific.</p>
+          <div class="scanner-meta">
+            <span class="scanner-severity"><span class="dot dot-critical"></span> Critical on redirected entrypoints</span>
+          </div>
+        </div>
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">ftrace_redirection</h3>
+            <span class="badge badge-kernel">kernel</span>
+          </div>
+          <p class="scanner-desc">Analyzes ftrace function hooks for suspicious kernel path redirection. Checks tracer configuration, filter functions against critical patterns covering syscalls, VFS, credentials, and LSM hooks.</p>
+          <div class="scanner-meta">
+            <span class="scanner-severity"><span class="dot dot-critical"></span> Critical on unfiltered active tracing</span>
+          </div>
+        </div>
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">unknown_kprobes</h3>
+            <span class="badge badge-kernel">kernel</span>
+          </div>
+          <p class="scanner-desc">Discovers kprobe and kretprobe events targeting sensitive kernel functions. Matches against critical patterns including syscalls, credentials, module loading, VFS, network, LSM, and BPF functions.</p>
+          <div class="scanner-meta">
+            <span class="scanner-severity"><span class="dot dot-warning"></span> Warning on sensitive kprobes</span>
+          </div>
+        </div>
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">syscall_table_integrity</h3>
+            <span class="badge badge-kernel">kernel</span>
+          </div>
+          <p class="scanner-desc">Examines syscall table entries by parsing <code>/proc/kcore</code> ELF core image. Verifies each entry resolves to core kernel text or legitimate modules. Detects entries pointing outside kernel memory.</p>
+          <div class="scanner-meta">
+            <span class="scanner-severity"><span class="dot dot-critical"></span> Critical on hijacked entries</span>
+          </div>
+        </div>
+
+        <div class="scanner-card">
+          <div class="scanner-header">
+            <h3 class="scanner-name">bpf_rootkit_detection</h3>
+            <div class="badge-group">
+              <span class="badge badge-kernel">kernel</span>
+              <span class="badge badge-network">network</span>
+              <span class="badge badge-process">persistence</span>
+              <span class="badge badge-process">process</span>
+            </div>
+          </div>
+          <p class="scanner-desc">Comprehensive eBPF/BPF security scanner analyzing programs, maps, and links via <code>bpftool</code>. Detects ownerless high-risk hooks, suspicious naming patterns, bpffs mount anomalies, and checks hardening sysctls.</p>
+          <div class="scanner-meta">
+            <span class="scanner-req">Requires: <code>bpftool</code></span>
+            <span class="scanner-severity"><span class="dot dot-critical"></span> Critical on ownerless hooks</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Usage -->
+  <section class="section" id="usage">
+    <div class="container">
+      <h2 class="section-title">Usage</h2>
+      <p class="section-subtitle">Simple CLI for rapid deployment and scripting</p>
+      <div class="usage-grid">
+
+        <div class="usage-block">
+          <h3>Basic Scan</h3>
+          <div class="terminal-block">
+            <div class="terminal-bar">
+              <span class="terminal-dot terminal-dot--red"></span>
+              <span class="terminal-dot terminal-dot--yellow"></span>
+              <span class="terminal-dot terminal-dot--green"></span>
+            </div>
+            <pre><code><span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint</span>
+
+<span class="t-header">[hidden_lkm]</span> <span class="t-dim">(kernel)</span>
+  <span class="t-ok">OK</span>
+
+<span class="t-header">[hidden_processes]</span> <span class="t-dim">(process)</span>
+  <span class="t-warn">WARNING</span> cgroup task anomaly detected
+    pid: 31337
+    source: cgroup tasks vs /proc
+
+<span class="t-header">[syscall_table_integrity]</span> <span class="t-dim">(kernel)</span>
+  <span class="t-crit">CRITICAL</span> sys_call_table entry points outside kernel text
+    syscall: __x64_sys_getdents64
+    address: 0xffffffffc0a01234</code></pre>
+          </div>
+        </div>
+
+        <div class="usage-block">
+          <h3>JSON Output</h3>
+          <div class="terminal-block">
+            <div class="terminal-bar">
+              <span class="terminal-dot terminal-dot--red"></span>
+              <span class="terminal-dot terminal-dot--yellow"></span>
+              <span class="terminal-dot terminal-dot--green"></span>
+            </div>
+            <pre><code><span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint --json</span>
+
+<span class="t-dim">{</span>
+  <span class="t-str">"scanners"</span>: [...],
+  <span class="t-str">"summary"</span>: {
+    <span class="t-str">"total"</span>: <span class="t-num">8</span>,
+    <span class="t-str">"clean"</span>: <span class="t-num">6</span>,
+    <span class="t-str">"findings"</span>: <span class="t-num">2</span>,
+    <span class="t-str">"errors"</span>: <span class="t-num">0</span>,
+    <span class="t-str">"skipped"</span>: <span class="t-num">0</span>,
+    <span class="t-str">"timed_out"</span>: <span class="t-num">0</span>
+  <span class="t-dim">}</span>
+<span class="t-dim">}</span></code></pre>
+          </div>
+        </div>
+
+        <div class="usage-block">
+          <h3>Selective Scanning</h3>
+          <div class="terminal-block">
+            <div class="terminal-bar">
+              <span class="terminal-dot terminal-dot--red"></span>
+              <span class="terminal-dot terminal-dot--yellow"></span>
+              <span class="terminal-dot terminal-dot--green"></span>
+            </div>
+            <pre><code><span class="t-comment"># Run only specific scanners</span>
+<span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint --scanner hidden_lkm --scanner hidden_processes</span>
+
+<span class="t-comment"># Exclude a scanner</span>
+<span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint --exclude bpf_rootkit_detection</span>
+
+<span class="t-comment"># List available scanners</span>
+<span class="t-prompt">#</span> <span class="t-cmd">./klint --list</span>
+<span class="t-dim">SCANNER                      CATEGORIES                      REQUIRES</span>
+<span class="t-dim">-----------------------------------------------------------------------</span>
+bpf_rootkit_detection        kernel, network, persistence,   tool:bpftool
+                             process
+ftrace_redirection           kernel                          -
+hidden_lkm                   kernel                          -
+hidden_network_sockets       network                         tool:ss
+hidden_processes             process                         -
+kernel_entrypoint_integrity  kernel                          -
+syscall_table_integrity      kernel                          -
+unknown_kprobes              kernel                          -</code></pre>
+          </div>
+        </div>
+
+        <div class="usage-block">
+          <h3>Timeout &amp; Options</h3>
+          <div class="terminal-block">
+            <div class="terminal-bar">
+              <span class="terminal-dot terminal-dot--red"></span>
+              <span class="terminal-dot terminal-dot--yellow"></span>
+              <span class="terminal-dot terminal-dot--green"></span>
+            </div>
+            <pre><code><span class="t-comment"># Set per-scanner timeout (default: 30s)</span>
+<span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint --timeout 60</span>
+
+<span class="t-comment"># Disable colored output</span>
+<span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint --no-color</span>
+
+<span class="t-comment"># Combine for CI pipelines</span>
+<span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint --json --timeout 45 \
+    --exclude bpf_rootkit_detection</span>
+
+<span class="t-comment"># Check exit code</span>
+<span class="t-prompt">#</span> <span class="t-cmd">sudo ./klint --json; echo "Exit: $?"</span></code></pre>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="exit-codes">
+        <h3>Exit Codes</h3>
+        <div class="exit-codes-grid">
+          <div class="exit-code">
+            <span class="exit-code-num exit-code--ok">0</span>
+            <span class="exit-code-desc">All scanners clean or skipped, no errors</span>
+          </div>
+          <div class="exit-code">
+            <span class="exit-code-num exit-code--findings">1</span>
+            <span class="exit-code-desc">At least one scanner reported findings</span>
+          </div>
+          <div class="exit-code">
+            <span class="exit-code-num exit-code--error">2</span>
+            <span class="exit-code-desc">Errors, timeouts, or invalid CLI arguments</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="section section-alt" id="architecture">
+    <div class="container">
+      <h2 class="section-title">Architecture</h2>
+      <p class="section-subtitle">Designed for reliability in hostile environments</p>
+      <div class="arch-grid">
+
+        <div class="arch-card">
+          <div class="arch-num">01</div>
+          <h3>Self-Registering Scanners</h3>
+          <p>Each scanner is a standalone <code>.cpp</code> file that auto-registers at static initialization time via a <code>Registrar</code> object. Adding a new scanner requires zero changes to the framework&mdash;just drop in a new file and rebuild.</p>
+          <div class="terminal-block terminal-block--compact">
+            <pre><code><span class="t-comment">// Each scanner self-registers:</span>
+<span class="t-kw">static</span> Registrar reg_{Scanner{
+    .name = <span class="t-str">"hidden_lkm"</span>,
+    .func = run,
+    .categories = kCategories,
+    .requirements = kRequirements,
+}};</code></pre>
+          </div>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-num">02</div>
+          <h3>Fork &amp; Pipe Isolation</h3>
+          <p>Every scanner executes in a forked child process with results serialized as JSON over a pipe. This provides crash isolation, timeout enforcement, and prevents one scanner's failure from affecting the rest of the assessment.</p>
+          <div class="arch-flow">
+            <div class="arch-flow-step">main</div>
+            <div class="arch-flow-arrow">&rarr;</div>
+            <div class="arch-flow-step">fork()</div>
+            <div class="arch-flow-arrow">&rarr;</div>
+            <div class="arch-flow-step">scanner</div>
+            <div class="arch-flow-arrow">&rarr;</div>
+            <div class="arch-flow-step">pipe &rarr; JSON</div>
+          </div>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-num">03</div>
+          <h3>Multi-View Validation</h3>
+          <p>Scanners cross-reference multiple kernel data sources to detect inconsistencies. Hidden LKM compares <code>/proc/modules</code> vs <code>/sys/module</code> vs <code>/proc/kallsyms</code>. Hidden processes checks <code>/proc</code> vs <code>kill()</code> vs cgroups. This multi-view approach is resilient to single-source tampering.</p>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-num">04</div>
+          <h3>Structured Results</h3>
+          <p>Every finding carries a <code>Severity</code> (Info, Warning, Critical), a one-line summary, optional detail text, and structured key-value evidence. Results aggregate into a typed <code>ScanResult</code> with clean separation of findings and errors.</p>
+          <div class="severity-legend">
+            <span class="severity-item"><span class="dot dot-info"></span> Info</span>
+            <span class="severity-item"><span class="dot dot-warning"></span> Warning</span>
+            <span class="severity-item"><span class="dot dot-critical"></span> Critical</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation -->
+  <section class="section" id="installation">
+    <div class="container">
+      <h2 class="section-title">Installation</h2>
+      <p class="section-subtitle">Build from source in under a minute</p>
+      <div class="install-grid">
+
+        <div class="install-step">
+          <div class="install-step-num">1</div>
+          <h3>Requirements</h3>
+          <ul class="install-list">
+            <li>CMake 3.28+</li>
+            <li>GCC 13+ or Clang 17+ (C++23)</li>
+            <li>nlohmann_json (system package)</li>
+            <li>Linux kernel 5.10+</li>
+          </ul>
+        </div>
+
+        <div class="install-step">
+          <div class="install-step-num">2</div>
+          <h3>Build</h3>
+          <div class="terminal-block terminal-block--compact">
+            <pre><code><span class="t-prompt">$</span> <span class="t-cmd">git clone &lt;repo-url&gt; klint</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cd klint</span>
+<span class="t-prompt">$</span> <span class="t-cmd">mkdir build && cd build</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cmake ..</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cmake --build .</span></code></pre>
+          </div>
+        </div>
+
+        <div class="install-step">
+          <div class="install-step-num">3</div>
+          <h3>Static Build</h3>
+          <div class="terminal-block terminal-block--compact">
+            <pre><code><span class="t-comment"># Fully static, no runtime deps</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cmake -DSTATIC_BUILD=ON ..</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cmake --build .</span>
+
+<span class="t-comment"># Deploy to target</span>
+<span class="t-prompt">$</span> <span class="t-cmd">scp klint root@target:/tmp/</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ssh root@target /tmp/klint --json</span></code></pre>
+          </div>
+        </div>
+
+        <div class="install-step">
+          <div class="install-step-num">4</div>
+          <h3>Build Options</h3>
+          <div class="terminal-block terminal-block--compact">
+            <pre><code><span class="t-comment"># Enable sanitizers (dev)</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cmake -DENABLE_SANITIZERS=ON ..</span>
+
+<span class="t-comment"># Treat warnings as errors</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cmake -DWERROR=ON ..</span></code></pre>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="nav-logo-icon">&gt;_</span>
+          <span class="nav-logo-text">klint</span>
+          <p class="footer-tagline">Linux Kernel Security Scanner</p>
+        </div>
+        <div class="footer-links">
+          <div class="footer-col">
+            <h4>Project</h4>
+            <ul>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#scanners">Scanners</a></li>
+              <li><a href="#usage">Usage</a></li>
+              <li><a href="#architecture">Architecture</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Resources</h4>
+            <ul>
+              <li><a href="#installation">Installation</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>Built with C++23. Designed for incident response.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

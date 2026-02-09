@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghostscan — Linux Incident Response Scanner</title>
+  <meta name="description" content="Fast, one-shot Linux incident response scanner. Detect rootkits, hidden malware, and kernel-level tampering with a single binary.">
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --bg-card: #111827;
+      --bg-card-hover: #1a2332;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --accent: #22d3ee;
+      --accent-dim: rgba(34, 211, 238, 0.12);
+      --green: #34d399;
+      --green-dim: rgba(52, 211, 153, 0.12);
+      --red: #f87171;
+      --red-dim: rgba(248, 113, 113, 0.12);
+      --orange: #fb923c;
+      --orange-dim: rgba(251, 146, 60, 0.12);
+      --purple: #a78bfa;
+      --purple-dim: rgba(167, 139, 250, 0.12);
+      --pink: #f472b6;
+      --pink-dim: rgba(244, 114, 182, 0.12);
+      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise overlay ────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Glow backgrounds ─────────────────────────── */
+    .glow {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-cyan   { background: rgba(34,211,238,0.08); width: 600px; height: 600px; }
+    .glow-purple { background: rgba(167,139,250,0.06); width: 500px; height: 500px; }
+
+    /* ── Navigation ───────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(1.2);
+      -webkit-backdrop-filter: blur(20px) saturate(1.2);
+      background: rgba(10,14,23,0.8);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .nav-logo svg { flex-shrink: 0; }
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-gh {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 1rem;
+      color: var(--text) !important;
+      font-size: 0.8rem;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .nav-gh:hover { border-color: var(--accent); background: var(--accent-dim); }
+
+    /* ── Hero ─────────────────────────────────────── */
+    .hero {
+      position: relative;
+      padding: 10rem 2rem 6rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero .glow-cyan   { top: -200px; left: 50%; transform: translateX(-50%); }
+    .hero .glow-purple { top: 0; right: -100px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 1rem;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(34,211,238,0.2);
+      margin-bottom: 1.5rem;
+    }
+    .badge-dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    h1 {
+      font-size: clamp(2.8rem, 6vw, 4.5rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.08;
+      margin-bottom: 1.25rem;
+    }
+    h1 .gradient {
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+      max-width: 620px;
+      margin: 0 auto 2.5rem;
+      font-size: 1.15rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.75rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .btn-primary:hover {
+      background: #06b6d4;
+      box-shadow: 0 0 30px rgba(34,211,238,0.3);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ── Terminal ──────────────────────────────────── */
+    .terminal-wrap {
+      max-width: 780px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    .terminal {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      text-align: left;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 80px rgba(34,211,238,0.05);
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1rem;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+    .terminal-dot:nth-child(1) { background: #ff5f57; }
+    .terminal-dot:nth-child(2) { background: #febc2e; }
+    .terminal-dot:nth-child(3) { background: #28c840; }
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+    .terminal-body {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+    .t-prompt { color: var(--green); }
+    .t-cmd    { color: var(--text); font-weight: 600; }
+    .t-dim    { color: #4b5563; }
+    .t-scanner { color: var(--accent); font-weight: 600; }
+    .t-ok     { color: var(--green); }
+    .t-finding { color: var(--red); }
+
+    /* ── Sections ──────────────────────────────────── */
+    section {
+      position: relative;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 5rem 2rem;
+    }
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+    h2 {
+      font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+    .section-desc {
+      color: var(--text-dim);
+      max-width: 600px;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      margin-bottom: 3rem;
+    }
+
+    /* ── Feature cards ────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+    }
+    .feature-card:hover {
+      border-color: rgba(34,211,238,0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+    .feature-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.5rem;
+    }
+    .feature-card p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    /* ── Scanner categories ────────────────────────── */
+    .scanner-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .scanner-cat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: border-color 0.3s;
+    }
+    .scanner-cat:hover { border-color: rgba(34,211,238,0.2); }
+    .scanner-cat-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .scanner-cat-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+    }
+    .scanner-cat h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+    .scanner-cat ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .scanner-cat li {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      padding-left: 1.1rem;
+      position: relative;
+      line-height: 1.5;
+    }
+    .scanner-cat li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.5;
+    }
+
+    /* ── Stats ─────────────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+      margin-bottom: 4rem;
+    }
+    .stat-card {
+      text-align: center;
+      padding: 2rem 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .stat-num {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--accent), var(--green));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+    }
+
+    /* ── Quickstart ────────────────────────────────── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+    }
+    .step {
+      position: relative;
+      padding: 1.75rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .step-num {
+      position: absolute;
+      top: -12px; left: 20px;
+      width: 28px; height: 28px;
+      background: var(--accent);
+      color: var(--bg);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+    .step h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .step p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+    .step code {
+      display: block;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--green);
+      word-break: break-all;
+    }
+
+    /* ── How it works ──────────────────────────────── */
+    .how-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      text-align: center;
+    }
+    .how-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .how-icon {
+      width: 64px; height: 64px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      background: var(--accent-dim);
+      border: 1px solid rgba(34,211,238,0.15);
+    }
+    .how-item h3 {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .how-item p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+      max-width: 220px;
+    }
+    .how-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--border);
+      font-size: 1.5rem;
+    }
+
+    /* ── Architecture ──────────────────────────────── */
+    .arch-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2.5rem;
+      text-align: center;
+    }
+    .arch-layers {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .arch-layer {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+    .arch-layer-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+      width: 90px;
+      flex-shrink: 0;
+    }
+    .arch-layer-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .arch-tag {
+      font-size: 0.72rem;
+      font-family: var(--mono);
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .arch-l1 { border-color: rgba(34,211,238,0.3); }
+    .arch-l1 .arch-layer-label { color: var(--accent); }
+    .arch-l2 { border-color: rgba(167,139,250,0.3); }
+    .arch-l2 .arch-layer-label { color: var(--purple); }
+    .arch-l3 { border-color: rgba(52,211,153,0.3); }
+    .arch-l3 .arch-layer-label { color: var(--green); }
+    .arch-l4 { border-color: rgba(251,146,60,0.3); }
+    .arch-l4 .arch-layer-label { color: var(--orange); }
+    .arch-connector {
+      width: 2px;
+      height: 16px;
+      background: var(--border);
+      margin: 0 auto;
+    }
+
+    /* ── Footer ────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+    .footer-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--accent); }
+
+    /* ── Responsive ────────────────────────────────── */
+    @media (max-width: 768px) {
+      .nav-links a:not(.nav-gh) { display: none; }
+      .hero { padding: 8rem 1.25rem 4rem; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .how-arrow { display: none; }
+      section { padding: 3.5rem 1.25rem; }
+      .features-grid, .scanner-grid { grid-template-columns: 1fr; }
+      .arch-layer { flex-direction: column; align-items: flex-start; }
+      .arch-layer-label { width: auto; }
+      .footer-inner { flex-direction: column; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .stats-row { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+      .steps { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#22d3ee" fill-opacity="0.12"/>
+        <path d="M8 10.5C8 10.5 10 8 14 8C18 8 20 10.5 20 10.5" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="11" cy="13.5" r="1.2" fill="#22d3ee"/>
+        <circle cx="17" cy="13.5" r="1.2" fill="#22d3ee"/>
+        <path d="M10 17.5C10 17.5 11.5 19 14 19C16.5 19 18 17.5 18 17.5" stroke="#22d3ee" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M6 14C6 9.58 9.58 6 14 6C18.42 6 22 9.58 22 14C22 18.42 18.42 22 14 22C9.58 22 6 18.42 6 14Z" stroke="#22d3ee" stroke-width="1.5" stroke-opacity="0.3"/>
+      </svg>
+      ghostscan
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#scanners">Scanners</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#architecture">Architecture</a>
+      <a href="https://github.com/h2337/ghostscan" class="nav-gh" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────── -->
+<section class="hero">
+  <div class="glow glow-cyan"></div>
+  <div class="glow glow-purple"></div>
+
+  <div class="badge">
+    <span class="badge-dot"></span>
+    Linux Incident Response
+  </div>
+
+  <h1>Find the ghosts<br>hiding in your <span class="gradient">kernel</span></h1>
+
+  <p class="hero-sub">
+    A fast, single-binary incident response scanner for Linux.
+    Detects rootkits, hidden processes, kernel tampering, and persistence
+    mechanisms in one sweep.
+  </p>
+
+  <div class="hero-actions">
+    <a href="#quickstart" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Get Started
+    </a>
+    <a href="https://github.com/h2337/ghostscan" target="_blank" rel="noopener" class="btn btn-secondary">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View on GitHub
+    </a>
+  </div>
+
+  <!-- Terminal demo -->
+  <div class="terminal-wrap">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="terminal-dot"></span>
+        <span class="terminal-dot"></span>
+        <span class="terminal-dot"></span>
+        <span class="terminal-title">ghostscan &mdash; bash</span>
+      </div>
+      <div class="terminal-body">
+        <span class="t-prompt">root@host:~#</span> <span class="t-cmd">./ghostscan</span><br>
+        <br>
+        <span class="t-scanner">[Syscall Table]</span> <span class="t-ok">OK</span><br>
+        <span class="t-scanner">[Hidden LKM]</span> <span class="t-ok">OK</span><br>
+        <span class="t-scanner">[Kernel Taint]</span> <span class="t-ok">OK</span><br>
+        <span class="t-scanner">[Ftrace Hooks]</span> <span class="t-ok">OK</span><br>
+        <span class="t-scanner">[BPF Kprobes]</span> <span class="t-finding">FINDING: kprobe on do_exit owned by pid 0 (orphan)</span><br>
+        <span class="t-scanner">[Hidden PIDs]</span> <span class="t-finding">FINDING: PID 31337 visible to BPF but missing from /proc</span><br>
+        <span class="t-scanner">[Deleted Binaries]</span> <span class="t-ok">OK</span><br>
+        <span class="t-scanner">[Hidden Listeners]</span> <span class="t-ok">OK</span><br>
+        <span class="t-scanner">[SSH Footholds]</span> <span class="t-ok">OK</span><br>
+        <span class="t-scanner">[ld.so.preload]</span> <span class="t-ok">OK</span><br>
+        <span class="t-dim">... 42 more scanners ...</span><br>
+        <br>
+        <span class="t-dim">Completed 52 scanners in 1.4s &mdash; 2 findings, 50 clear</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats ────────────────────────────────────── -->
+<section>
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num">52</div>
+      <div class="stat-label">Security Scanners</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">10</div>
+      <div class="stat-label">Attack Categories</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">1</div>
+      <div class="stat-label">Single Binary</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">&lt;2s</div>
+      <div class="stat-label">Full Scan Time</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ─────────────────────────────────── -->
+<section id="features">
+  <div class="section-label">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    Features
+  </div>
+  <h2>Deep forensics,<br>zero footprint</h2>
+  <p class="section-desc">
+    Ghostscan inspects kernel structures, BPF programs, network sockets,
+    and filesystem artifacts to surface threats that traditional tools miss.
+  </p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--accent-dim); color: var(--accent);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+      </div>
+      <h3>Single Binary Deploy</h3>
+      <p>Drop one static binary onto the target host. No dependencies, no installation, no agents. Build once with Rust and go.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--green-dim); color: var(--green);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      </div>
+      <h3>One-Shot Scan</h3>
+      <p>Run once, get results. No daemons, no persistent state. Every scan is a fresh, complete sweep with immediate findings.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--purple-dim); color: var(--purple);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      </div>
+      <h3>eBPF-Powered Detection</h3>
+      <p>Embedded BPF programs inspect kernel data structures directly, finding hidden processes and listeners invisible to procfs.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--red-dim); color: var(--red);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3>Kernel Integrity Checks</h3>
+      <p>Validates syscall tables, ftrace hooks, kprobes, and kernel text sections to detect runtime tampering and rootkit hooks.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--orange-dim); color: var(--orange);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9"/></svg>
+      </div>
+      <h3>Network Anomaly Detection</h3>
+      <p>Cross-references netlink sockets, /proc/net, and netfilter hooks to find hidden listeners, orphaned sockets, and backdoor ports.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: var(--pink-dim); color: var(--pink);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+      </div>
+      <h3>Persistence Hunting</h3>
+      <p>Scans cron jobs, systemd units, SSH configs, ld.so.preload, PAM modules, sudoers, and more for backdoor persistence mechanisms.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Scanners ─────────────────────────────────── -->
+<section id="scanners">
+  <div class="section-label">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    52 Scanners
+  </div>
+  <h2>Comprehensive coverage<br>across the attack surface</h2>
+  <p class="section-desc">
+    Every scanner cross-references multiple data sources to detect discrepancies
+    that indicate active compromise.
+  </p>
+
+  <div class="scanner-grid">
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: var(--accent-dim); color: var(--accent);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+        </div>
+        <h3>Kernel Modules</h3>
+      </div>
+      <ul>
+        <li>Hidden LKM detection (procfs/sysfs/kallsyms)</li>
+        <li>Module list linkage tampering</li>
+        <li>Kernel taint analysis with attribution</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: var(--red-dim); color: var(--red);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Kernel Integrity</h3>
+      </div>
+      <ul>
+        <li>Syscall table pointer verification</li>
+        <li>Ftrace redirection on critical paths</li>
+        <li>Unknown kprobes on sensitive symbols</li>
+        <li>Kernel text RO enforcement</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: var(--purple-dim); color: var(--purple);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3>BPF Programs</h3>
+      </div>
+      <ul>
+        <li>Ownerless BPF objects</li>
+        <li>BPF kprobe on sensitive symbols</li>
+        <li>BPF LSM &amp; XDP/TC detached programs</li>
+        <li>Sockmap/sockhash &amp; sensitive kfuncs</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: var(--green-dim); color: var(--green);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <h3>Process Hiding</h3>
+      </div>
+      <ul>
+        <li>Hidden PIDs (BPF-only visibility)</li>
+        <li>Task list mismatch (BPF vs /proc)</li>
+        <li>Kernel thread masquerade</li>
+        <li>Deleted/memfd binary execution</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: var(--orange-dim); color: var(--orange);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9"/></svg>
+        </div>
+        <h3>Network Tampering</h3>
+      </div>
+      <ul>
+        <li>Netfilter hook drift &amp; cloaking</li>
+        <li>Hidden listeners (netlink-only)</li>
+        <li>Ownerless sockets &amp; port backdoors</li>
+        <li>Netlink vs /proc discrepancies</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: var(--pink-dim); color: var(--pink);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        </div>
+        <h3>Persistence</h3>
+      </div>
+      <ul>
+        <li>Ghost cron/systemd jobs</li>
+        <li>ld.so.preload &amp; ld_audit daemons</li>
+        <li>SSH footholds &amp; core dump pipelines</li>
+        <li>PAM/NSS from non-system paths</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: rgba(251,191,36,0.12); color: #fbbf24;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v2"/><path d="M12 9l.01 0"/><path d="M3.44 18h17.12a1 1 0 00.86-1.5L13.36 3a1.5 1.5 0 00-2.72 0L2.58 16.5A1 1 0 003.44 18z"/></svg>
+        </div>
+        <h3>Privilege Escalation</h3>
+      </div>
+      <ul>
+        <li>modprobe helper tampering</li>
+        <li>Sudoers dangerous entries</li>
+        <li>Library search hijack (SUID binaries)</li>
+        <li>Live LD_PRELOAD to deleted libraries</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: rgba(96,165,250,0.12); color: #60a5fa;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        </div>
+        <h3>Container Escape</h3>
+      </div>
+      <ul>
+        <li>OverlayFS whiteouts &amp; lowerdir escape</li>
+        <li>Hidden bind/immutable mounts</li>
+        <li>Sensitive host mounts into containers</li>
+        <li>Host PID/net namespace sharing</li>
+      </ul>
+    </div>
+
+    <div class="scanner-cat">
+      <div class="scanner-cat-header">
+        <div class="scanner-cat-icon" style="background: rgba(244,114,182,0.12); color: #f472b6;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h3>Monitoring Bypass</h3>
+      </div>
+      <ul>
+        <li>Fanotify on sensitive mounts</li>
+        <li>Seccomp user-notify responders</li>
+        <li>Audit disabled/dropping detection</li>
+        <li>Journal gaps &amp; kernel message suppression</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ─────────────────────────────── -->
+<section>
+  <div class="section-label">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    How It Works
+  </div>
+  <h2>Three steps to clean</h2>
+  <p class="section-desc">
+    No configuration. No tuning. Drop, run, read.
+  </p>
+
+  <div class="how-row">
+    <div class="how-item">
+      <div class="how-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <h3>Deploy</h3>
+      <p>Copy the single binary to your target host. No runtime dependencies required.</p>
+    </div>
+    <div class="how-arrow">&#8594;</div>
+    <div class="how-item">
+      <div class="how-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      <h3>Scan</h3>
+      <p>Run as root. All 52 scanners execute automatically in under 2 seconds.</p>
+    </div>
+    <div class="how-arrow">&#8594;</div>
+    <div class="how-item">
+      <div class="how-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </div>
+      <h3>Triage</h3>
+      <p>Color-coded findings with actionable context. Red means investigate, green means clear.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Quickstart ───────────────────────────────── -->
+<section id="quickstart">
+  <div class="section-label">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+    Quickstart
+  </div>
+  <h2>Up and running<br>in 60 seconds</h2>
+  <p class="section-desc">
+    Build from source with the Rust toolchain, then deploy anywhere.
+  </p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Clone &amp; Build</h3>
+      <p>Clone the repository and build a release binary.</p>
+      <code>git clone https://github.com/h2337/ghostscan<br>cd ghostscan &amp;&amp; cargo build --release</code>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Deploy</h3>
+      <p>Copy the binary to the target host.</p>
+      <code>scp target/release/ghostscan root@host:/tmp/</code>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Scan</h3>
+      <p>Run as root and review findings.</p>
+      <code>sudo ./ghostscan</code>
+    </div>
+  </div>
+</section>
+
+<!-- ── Architecture ─────────────────────────────── -->
+<section id="architecture">
+  <div class="section-label">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    Architecture
+  </div>
+  <h2>Built for depth</h2>
+  <p class="section-desc">
+    Modular scanner architecture with multi-source cross-referencing
+    for high-confidence detections.
+  </p>
+
+  <div class="arch-diagram">
+    <div class="arch-layers">
+      <div class="arch-layer arch-l1">
+        <div class="arch-layer-label">User Space</div>
+        <div class="arch-layer-items">
+          <span class="arch-tag">52 Rust Scanners</span>
+          <span class="arch-tag">procfs parser</span>
+          <span class="arch-tag">sysfs parser</span>
+          <span class="arch-tag">netlink client</span>
+        </div>
+      </div>
+      <div class="arch-connector"></div>
+      <div class="arch-layer arch-l2">
+        <div class="arch-layer-label">eBPF Layer</div>
+        <div class="arch-layer-items">
+          <span class="arch-tag">task_snapshot.bpf.c</span>
+          <span class="arch-tag">hidden_listeners.bpf.c</span>
+          <span class="arch-tag">libbpf-rs</span>
+        </div>
+      </div>
+      <div class="arch-connector"></div>
+      <div class="arch-layer arch-l3">
+        <div class="arch-layer-label">Data Sources</div>
+        <div class="arch-layer-items">
+          <span class="arch-tag">/proc</span>
+          <span class="arch-tag">/sys</span>
+          <span class="arch-tag">kallsyms</span>
+          <span class="arch-tag">netlink</span>
+          <span class="arch-tag">systemd</span>
+          <span class="arch-tag">cron</span>
+        </div>
+      </div>
+      <div class="arch-connector"></div>
+      <div class="arch-layer arch-l4">
+        <div class="arch-layer-label">Kernel</div>
+        <div class="arch-layer-items">
+          <span class="arch-tag">syscall table</span>
+          <span class="arch-tag">ftrace</span>
+          <span class="arch-tag">kprobes</span>
+          <span class="arch-tag">netfilter</span>
+          <span class="arch-tag">task_struct</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ──────────────────────────────────────── -->
+<section style="text-align: center; padding-bottom: 6rem;">
+  <h2>Ready to hunt ghosts?</h2>
+  <p class="section-desc" style="margin: 1rem auto 2rem;">
+    Open source. MIT licensed. Built in Rust.
+  </p>
+  <div class="hero-actions">
+    <a href="https://github.com/h2337/ghostscan" target="_blank" rel="noopener" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View on GitHub
+    </a>
+    <a href="#quickstart" class="btn btn-secondary">
+      Read the Docs
+    </a>
+  </div>
+</section>
+
+<!-- ── Footer ──────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#22d3ee" fill-opacity="0.12"/>
+        <path d="M8 10.5C8 10.5 10 8 14 8C18 8 20 10.5 20 10.5" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="11" cy="13.5" r="1.2" fill="#22d3ee"/>
+        <circle cx="17" cy="13.5" r="1.2" fill="#22d3ee"/>
+        <path d="M10 17.5C10 17.5 11.5 19 14 19C16.5 19 18 17.5 18 17.5" stroke="#22d3ee" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      ghostscan &mdash; MIT License
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/h2337/ghostscan" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/h2337/ghostscan/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://github.com/h2337/ghostscan/blob/master/LICENSE" target="_blank" rel="noopener">License</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
