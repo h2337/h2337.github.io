@@ -22,6 +22,7 @@
         <a href="#performance">Performance</a>
         <a href="#usage">Usage</a>
         <a href="#architecture">Architecture</a>
+        <a href="#api">API</a>
         <a href="https://github.com/h2337/tsink" class="btn btn-sm btn-outline" target="_blank" rel="noopener">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           GitHub
@@ -465,6 +466,212 @@ tsink = <span class="str">"0.7"</span></code></pre>
             <div class="arch-box">Retention Policy</div>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API Reference -->
+  <section id="api" class="api-reference">
+    <div class="container">
+      <div class="section-header">
+        <h2>Complete API at a glance.</h2>
+        <p>Every type, trait, and method you need to build with tsink.</p>
+      </div>
+
+      <div class="api-grid">
+
+        <!-- Storage Trait -->
+        <div class="api-category api-category-primary">
+          <div class="api-category-header">
+            <div class="api-category-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+            <div>
+              <h3>Storage</h3>
+              <span class="api-category-badge">trait</span>
+            </div>
+          </div>
+          <p class="api-category-desc">The main interface for all time-series operations. Thread-safe (<code>Send + Sync</code>).</p>
+          <div class="api-items">
+            <div class="api-item">
+              <code class="api-sig">insert_rows(&amp;self, rows: &amp;[Row]) -&gt; Result&lt;()&gt;</code>
+              <span class="api-desc">Write one or more data points in a single batch</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">select(&amp;self, metric, labels, start, end) -&gt; Result&lt;Vec&lt;DataPoint&gt;&gt;</code>
+              <span class="api-desc">Query points by metric name, label filters, and time range</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">select_all(&amp;self, metric, start, end) -&gt; Result&lt;Vec&lt;(Vec&lt;Label&gt;, Vec&lt;DataPoint&gt;)&gt;&gt;</code>
+              <span class="api-desc">Query all label combinations for a metric</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">select_with_options(&amp;self, metric, opts: QueryOptions) -&gt; Result&lt;Vec&lt;DataPoint&gt;&gt;</code>
+              <span class="api-desc">Advanced queries with aggregation, downsampling, and pagination</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">list_metrics(&amp;self) -&gt; Result&lt;Vec&lt;MetricSeries&gt;&gt;</code>
+              <span class="api-desc">Discover all metric series stored in the database</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">close(&amp;self) -&gt; Result&lt;()&gt;</code>
+              <span class="api-desc">Gracefully shut down, flushing all buffers and WAL</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- StorageBuilder -->
+        <div class="api-category api-category-accent">
+          <div class="api-category-header">
+            <div class="api-category-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <div>
+              <h3>StorageBuilder</h3>
+              <span class="api-category-badge">struct</span>
+            </div>
+          </div>
+          <p class="api-category-desc">Fluent builder for creating configured <code>Storage</code> instances.</p>
+          <div class="api-items">
+            <div class="api-item">
+              <code class="api-sig">StorageBuilder::new() -&gt; Self</code>
+              <span class="api-desc">Create builder with sensible defaults</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_data_path(path) -&gt; Self</code>
+              <span class="api-desc">Enable persistent disk storage at the given path</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_retention(duration) -&gt; Self</code>
+              <span class="api-desc">Set automatic data cleanup policy</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_timestamp_precision(p) -&gt; Self</code>
+              <span class="api-desc">Choose Nanoseconds, Microseconds, Milliseconds, or Seconds</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_partition_duration(dur) -&gt; Self</code>
+              <span class="api-desc">Time range covered by each partition</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_wal_enabled(bool) -&gt; Self</code>
+              <span class="api-desc">Toggle write-ahead logging for crash recovery</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_wal_sync_mode(mode) -&gt; Self</code>
+              <span class="api-desc">Set WAL fsync strategy for durability vs throughput</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.build() -&gt; Result&lt;Arc&lt;dyn Storage&gt;&gt;</code>
+              <span class="api-desc">Construct the storage engine</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Core Types -->
+        <div class="api-category api-category-cyan">
+          <div class="api-category-header">
+            <div class="api-category-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+            <div>
+              <h3>Core Types</h3>
+              <span class="api-category-badge">structs</span>
+            </div>
+          </div>
+          <p class="api-category-desc">The fundamental data structures for time-series storage.</p>
+          <div class="api-items">
+            <div class="api-item">
+              <code class="api-sig">DataPoint { timestamp: i64, value: f64 }</code>
+              <span class="api-desc">Smallest unit of time-series data</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">Row::new(metric, data_point)</code>
+              <span class="api-desc">A metric name paired with a single data point</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">Row::with_labels(metric, labels, data_point)</code>
+              <span class="api-desc">A data point with multi-dimensional label metadata</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">Label::new(name, value)</code>
+              <span class="api-desc">Key-value pair for dimensional tagging</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">MetricSeries { name, labels }</code>
+              <span class="api-desc">Unique metric identified by name and label set</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Query & Aggregation -->
+        <div class="api-category api-category-green">
+          <div class="api-category-header">
+            <div class="api-category-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div>
+              <h3>Querying</h3>
+              <span class="api-category-badge">structs + enums</span>
+            </div>
+          </div>
+          <p class="api-category-desc">Advanced query customization with downsampling and aggregation.</p>
+          <div class="api-items">
+            <div class="api-item">
+              <code class="api-sig">QueryOptions::new(start, end)</code>
+              <span class="api-desc">Create a time-range query</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_labels(labels) -&gt; Self</code>
+              <span class="api-desc">Add label filters to narrow results</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_downsample(interval, agg) -&gt; Self</code>
+              <span class="api-desc">Bucket data into time intervals with aggregation</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_pagination(offset, limit) -&gt; Self</code>
+              <span class="api-desc">Limit and paginate query results</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">Aggregation::{ Sum, Min, Max, Avg, Last }</code>
+              <span class="api-desc">Aggregation functions for downsampling or full-series reduction</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enums -->
+        <div class="api-category api-category-navy">
+          <div class="api-category-header">
+            <div class="api-category-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <div>
+              <h3>Configuration Enums</h3>
+              <span class="api-category-badge">enums</span>
+            </div>
+          </div>
+          <p class="api-category-desc">Enums for precision, durability, and error handling.</p>
+          <div class="api-items">
+            <div class="api-item">
+              <code class="api-sig">TimestampPrecision::{ Nanoseconds, Microseconds, Milliseconds, Seconds }</code>
+              <span class="api-desc">Unit for interpreting timestamp values</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">WalSyncMode::PerAppend</code>
+              <span class="api-desc">Fsync every write for strongest durability</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">WalSyncMode::Periodic(Duration)</code>
+              <span class="api-desc">Fsync at intervals for higher throughput</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">TsinkError / Result&lt;T&gt;</code>
+              <span class="api-desc">Unified error type and result alias for all operations</span>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>

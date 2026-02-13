@@ -75,7 +75,7 @@ const observer = new IntersectionObserver((entries) => {
 }, observerOptions);
 
 // Observe feature cards and bench cards
-document.querySelectorAll('.feature-card, .bench-card, .arch-layer').forEach((el, i) => {
+document.querySelectorAll('.feature-card, .bench-card, .arch-layer, .api-category').forEach((el, i) => {
   el.style.animationDelay = `${i * 0.05}s`;
   observer.observe(el);
 });
