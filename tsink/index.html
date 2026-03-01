@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>tsink - Embedded Time-Series Database for Rust</title>
+  <meta name="description" content="High-performance embedded time-series database for Rust with LSM-tree storage, PromQL engine, Gorilla compression, and Prometheus-compatible server mode.">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +22,8 @@
         <a href="#features">Features</a>
         <a href="#performance">Performance</a>
         <a href="#usage">Usage</a>
+        <a href="#promql">PromQL</a>
+        <a href="#server">Server</a>
         <a href="#architecture">Architecture</a>
         <a href="#api">API</a>
         <a href="https://github.com/h2337/tsink" class="btn btn-sm btn-outline" target="_blank" rel="noopener">
@@ -42,27 +45,32 @@
       <div class="glow glow-2"></div>
     </div>
     <div class="container hero-content">
-      <div class="badge">MIT Licensed &middot; v0.7.0</div>
+      <div class="badge">MIT Licensed &middot; v0.8.0</div>
       <h1>Embedded Time-Series<br>Database for <span class="gradient-text">Rust</span></h1>
-      <p class="hero-subtitle">High-performance storage with Gorilla compression, thread-safe concurrency, and crash recovery. Embed a full time-series engine directly in your application.</p>
+      <p class="hero-subtitle">LSM-tree storage engine with Gorilla compression, PromQL queries, async API, and a Prometheus-compatible server. Embed a full time-series engine directly in your application &mdash; no external server required.</p>
       <div class="hero-actions">
         <a href="#usage" class="btn btn-primary btn-lg">Get Started</a>
         <a href="https://github.com/h2337/tsink" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">View on GitHub</a>
       </div>
       <div class="hero-stats">
         <div class="stat">
-          <span class="stat-value">~100ns</span>
-          <span class="stat-label">Insert latency</span>
+          <span class="stat-value">6.4M</span>
+          <span class="stat-label">Points/sec insert</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat">
-          <span class="stat-value">1.37B</span>
+          <span class="stat-value">0.68B</span>
           <span class="stat-label">Per data point</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat">
-          <span class="stat-value">15M</span>
-          <span class="stat-label">Points/sec batch</span>
+          <span class="stat-value">64M</span>
+          <span class="stat-label">Points/sec read</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">23x</span>
+          <span class="stat-label">Compression ratio</span>
         </div>
       </div>
     </div>
@@ -77,30 +85,98 @@
             </div>
             <span class="code-filename">main.rs</span>
           </div>
-          <pre><code><span class="kw">use</span> tsink::{DataPoint, Label, Row, Storage, StorageBuilder};
+          <pre><code><span class="kw">use</span> std::time::Duration;
+<span class="kw">use</span> tsink::{DataPoint, Label, Row, StorageBuilder};
 
 <span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
     <span class="kw">let</span> storage = StorageBuilder::new()
         .with_data_path(<span class="str">"./tsink-data"</span>)
-        .with_partition_duration(Duration::from_secs(<span class="num">3600</span>))
         .with_retention(Duration::from_secs(<span class="num">7</span> * <span class="num">24</span> * <span class="num">3600</span>))
+        .with_memory_limit(<span class="num">512</span> * <span class="num">1024</span> * <span class="num">1024</span>)
         .build()?;
 
-    <span class="kw">let</span> rows = <span class="kw">vec!</span>[
+    storage.insert_rows(&amp;[
         Row::with_labels(
             <span class="str">"cpu_usage"</span>,
             <span class="kw">vec!</span>[Label::new(<span class="str">"host"</span>, <span class="str">"server-01"</span>)],
-            DataPoint::new(<span class="num">1600000000</span>, <span class="num">45.5</span>),
+            DataPoint::new(<span class="num">1_700_000_000</span>, <span class="num">45.5</span>),
         ),
-    ];
-    storage.insert_rows(&amp;rows)?;
-    <span class="comment">// Query with label filtering</span>
-    <span class="kw">let</span> points = storage.select(
-        <span class="str">"cpu_usage"</span>, &amp;[Label::new(<span class="str">"host"</span>, <span class="str">"server-01"</span>)],
-        <span class="num">1600000000</span>, <span class="num">1600000121</span>,
-    )?;
+    ])?;
+
+    <span class="comment">// PromQL query engine</span>
+    <span class="kw">let</span> engine = tsink::promql::Engine::new(storage.clone());
+    <span class="kw">let</span> result = engine.instant_query(<span class="str">"cpu_usage"</span>, <span class="num">1_700_000_000</span>)?;
+
+    storage.close()?;
     <span class="macro">Ok</span>(())
 }</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- What's New in 0.8.0 -->
+  <section id="whats-new" class="whats-new">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge badge-release">New in 0.8.0</div>
+        <h2>A ground-up rewrite.</h2>
+        <p>0.8.0 is a complete storage engine rewrite with a new LSM-tree architecture, PromQL engine, and much more.</p>
+      </div>
+      <div class="changelog-grid">
+        <div class="changelog-item">
+          <div class="changelog-icon changelog-icon-engine">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <div>
+            <h4>LSM-Tree Storage Engine</h4>
+            <p>Complete rewrite with L0/L1/L2 tiered compaction, background merges, and dual-lane encoding for numeric and blob data.</p>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-icon changelog-icon-promql">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <div>
+            <h4>PromQL Query Engine</h4>
+            <p>Full lexer, parser, and evaluator with 23 built-in functions, 15 binary operators, and 7 aggregation operators.</p>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-icon changelog-icon-types">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <div>
+            <h4>Multi-Type Value System</h4>
+            <p><code>f64</code>, <code>i64</code>, <code>u64</code>, <code>bool</code>, <code>bytes</code>, and <code>string</code> &mdash; with per-type codecs and automatic <code>From</code> conversions.</p>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-icon changelog-icon-async">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div>
+            <h4>Async Storage &amp; Server</h4>
+            <p>Runtime-agnostic <code>AsyncStorage</code> with bounded queues, plus a tokio-based HTTP server with Prometheus remote read/write.</p>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-icon changelog-icon-limits">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <h4>Resource Limits &amp; Backpressure</h4>
+            <p>Memory budget enforcement, series cardinality cap, and WAL size limits with graduated pressure relief.</p>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-icon changelog-icon-wal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div>
+            <h4>Segmented WAL with CRC32</h4>
+            <p>Checksummed WAL segments with fsync, idempotent replay recovery, and configurable size limits.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -119,56 +195,84 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </div>
           <h3>Gorilla Compression</h3>
-          <p>Facebook's Gorilla algorithm achieves ~1.37 bytes per data point using delta-of-delta timestamps and XOR-based value encoding.</p>
+          <p>Adaptive codec selection: Gorilla XOR for floats, delta-of-delta bitpacking, zigzag encoding, and constant RLE. Achieves <strong>~0.68 bytes per data point</strong> &mdash; a 23x compression ratio.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-lsm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <h3>LSM-Tree Compaction</h3>
+          <p>Tiered L0 &rarr; L1 &rarr; L2 segment compaction runs in the background. Reduces read amplification while maintaining write throughput with dual numeric/blob lanes.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-promql">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3>PromQL Engine</h3>
+          <p>Instant and range queries with 23 built-in functions including <code>rate</code>, <code>irate</code>, <code>avg_over_time</code>, and more. Full <code>by</code>/<code>without</code> aggregation support.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-thread">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           </div>
-          <h3>Thread-Safe Concurrency</h3>
-          <p>Lock-free reads with concurrent writes via configurable worker pools. Built on <code>DashMap</code>, <code>parking_lot</code>, and <code>crossbeam</code>.</p>
+          <h3>Sharded Concurrency</h3>
+          <p>64 internal shards eliminate write contention. Lock-free reads with concurrent writes via configurable worker pools. Full <code>Send + Sync</code> safety.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon icon-disk">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div class="feature-icon icon-types">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           </div>
-          <h3>Dual Storage Modes</h3>
-          <p>Run fully in-memory for maximum speed or persist to disk with memory-mapped files for zero-copy reads and automatic recovery.</p>
+          <h3>Typed Values</h3>
+          <p>Six value types: <code>f64</code>, <code>i64</code>, <code>u64</code>, <code>bool</code>, <code>bytes</code>, and <code>string</code>. Per-type codecs, automatic <code>From</code> conversions, and custom bytes aggregation via <code>Codec</code>/<code>Aggregator</code> traits.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-wal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
           <h3>Write-Ahead Logging</h3>
-          <p>WAL ensures crash recovery with configurable sync modes and buffer sizes. Choose between periodic sync for throughput or per-append sync for strongest durability.</p>
+          <p>Segmented WAL with CRC32 checksums and idempotent replay. Choose <code>Periodic</code> sync for throughput or <code>PerAppend</code> for strongest durability.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-async">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <h3>Async Storage</h3>
+          <p>Runtime-agnostic <code>AsyncStorage</code> with bounded queues and dedicated worker threads. Works with tokio, async-std, or any executor.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-server">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          </div>
+          <h3>Server Mode</h3>
+          <p>Prometheus-compatible HTTP server with remote read/write, PromQL HTTP API, TLS, bearer auth, text format ingestion, and graceful shutdown.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-label">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
           </div>
-          <h3>Multi-Dimensional Labels</h3>
-          <p>Tag data points with key-value labels for flexible querying. Filter by any combination of labels with efficient binary marshaling.</p>
+          <h3>Series Discovery</h3>
+          <p>Matcher-based series filtering with <code>=</code>, <code>!=</code>, <code>=~</code>, <code>!~</code> operators. Discover series dynamically with <code>select_series</code> and regex label matching.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-query">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3>Rich Aggregation</h3>
+          <p>12 built-in functions: Sum, Min, Max, Avg, First, Last, Count, Median, Range, Variance, StdDev, and None. Downsampling with pagination built in.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-limits">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <h3>Resource Limits</h3>
+          <p>Memory budget with admission backpressure, series cardinality cap, and WAL size limit. Prevents OOM crashes and unbounded growth.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-cloud">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
           <h3>Container-Aware</h3>
-          <p>Automatic cgroup detection for CPU and memory limits. Optimal resource usage in Docker, Kubernetes, and other containerized environments.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon icon-query">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </div>
-          <h3>Rich Querying</h3>
-          <p>Downsampling, aggregation (Sum, Avg, Min, Max, Last), pagination, and time-range filtering built in. No external query engine needed.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon icon-partition">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          </div>
-          <h3>Time-Based Partitioning</h3>
-          <p>Automatic partition management with configurable durations. Old partitions expire based on retention policy. Out-of-order writes handled gracefully.</p>
+          <p>Automatic cgroup v1/v2 detection for CPU and memory quotas. Optimal thread pool sizing in Docker, Kubernetes, and other containerized environments.</p>
         </div>
       </div>
     </div>
@@ -179,7 +283,7 @@
     <div class="container">
       <div class="section-header">
         <h2>Benchmarks that speak<br>for themselves.</h2>
-        <p>Measured on AMD Ryzen 7940HS, single core.</p>
+        <p>Ballpark figures from <code>cargo bench</code> in quick mode. Run on your hardware for precise numbers.</p>
       </div>
       <div class="bench-grid">
         <div class="bench-card">
@@ -187,45 +291,54 @@
             <span class="bench-label">Single Insert</span>
             <span class="bench-badge">Latency</span>
           </div>
-          <div class="bench-value">~100<span class="bench-unit">ns</span></div>
-          <div class="bench-bar"><div class="bench-fill" style="width: 95%"></div></div>
-          <div class="bench-detail">10M operations/sec</div>
+          <div class="bench-value">~1.7<span class="bench-unit">&micro;s</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 60%"></div></div>
+          <div class="bench-detail">~577K points/sec</div>
         </div>
         <div class="bench-card">
           <div class="bench-header">
             <span class="bench-label">Batch Insert (1K)</span>
             <span class="bench-badge">Throughput</span>
           </div>
-          <div class="bench-value">15<span class="bench-unit">M pts/s</span></div>
+          <div class="bench-value">6.4<span class="bench-unit">M pts/s</span></div>
           <div class="bench-bar"><div class="bench-fill" style="width: 100%"></div></div>
-          <div class="bench-detail">~67&micro;s per 1,000-point batch</div>
+          <div class="bench-detail">~155&micro;s per 1,000-point batch</div>
+        </div>
+        <div class="bench-card">
+          <div class="bench-header">
+            <span class="bench-label">Select 1 Point</span>
+            <span class="bench-badge">Query</span>
+          </div>
+          <div class="bench-value">~114<span class="bench-unit">ns</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 95%"></div></div>
+          <div class="bench-detail">8.8M queries/sec</div>
         </div>
         <div class="bench-card">
           <div class="bench-header">
             <span class="bench-label">Select 1K Points</span>
             <span class="bench-badge">Query</span>
           </div>
-          <div class="bench-value">~220<span class="bench-unit">ns</span></div>
-          <div class="bench-bar"><div class="bench-fill" style="width: 80%"></div></div>
-          <div class="bench-detail">4.5M queries/sec</div>
+          <div class="bench-value">~15.4<span class="bench-unit">&micro;s</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 85%"></div></div>
+          <div class="bench-detail">64M points/sec throughput</div>
         </div>
         <div class="bench-card">
           <div class="bench-header">
             <span class="bench-label">Select 1M Points</span>
             <span class="bench-badge">Query</span>
           </div>
-          <div class="bench-value">~290<span class="bench-unit">ns</span></div>
-          <div class="bench-bar"><div class="bench-fill" style="width: 70%"></div></div>
-          <div class="bench-detail">3.4M queries/sec</div>
+          <div class="bench-value">~20.9<span class="bench-unit">ms</span></div>
+          <div class="bench-bar"><div class="bench-fill" style="width: 75%"></div></div>
+          <div class="bench-detail">48M points/sec throughput</div>
         </div>
-        <div class="bench-card">
+        <div class="bench-card bench-card-highlight">
           <div class="bench-header">
             <span class="bench-label">Compression Ratio</span>
-            <span class="bench-badge">Storage</span>
+            <span class="bench-badge badge-special">Storage</span>
           </div>
-          <div class="bench-value">1.37<span class="bench-unit">bytes/pt</span></div>
-          <div class="bench-bar"><div class="bench-fill" style="width: 90%"></div></div>
-          <div class="bench-detail">Gorilla compression with XOR encoding</div>
+          <div class="bench-value">0.68<span class="bench-unit">bytes/pt</span></div>
+          <div class="bench-bar"><div class="bench-fill bench-fill-special" style="width: 96%"></div></div>
+          <div class="bench-detail">23x compression &mdash; from 16 bytes to 0.68 bytes</div>
         </div>
       </div>
     </div>
@@ -250,8 +363,14 @@
             </div>
             <span class="code-filename">Cargo.toml</span>
           </div>
-          <pre><code>[dependencies]
-tsink = <span class="str">"0.7"</span></code></pre>
+          <pre><code><span class="comment"># Core library</span>
+tsink = <span class="str">"0.8.0"</span>
+
+<span class="comment"># With PromQL support</span>
+tsink = { version = <span class="str">"0.8.0"</span>, features = [<span class="str">"promql"</span>] }
+
+<span class="comment"># With async storage</span>
+tsink = { version = <span class="str">"0.8.0"</span>, features = [<span class="str">"async-storage"</span>] }</code></pre>
         </div>
       </div>
 
@@ -260,6 +379,9 @@ tsink = <span class="str">"0.7"</span></code></pre>
         <button class="tab" data-tab="persistent">Persistent Storage</button>
         <button class="tab" data-tab="labels">Labels &amp; Queries</button>
         <button class="tab" data-tab="aggregation">Aggregation</button>
+        <button class="tab" data-tab="promql-example">PromQL</button>
+        <button class="tab" data-tab="async-example">Async</button>
+        <button class="tab" data-tab="series">Series Discovery</button>
       </div>
 
       <div class="tab-content active" id="tab-basic">
@@ -272,30 +394,32 @@ tsink = <span class="str">"0.7"</span></code></pre>
             </div>
             <span class="code-filename">basic_usage.rs</span>
           </div>
-          <pre><code><span class="kw">use</span> tsink::{DataPoint, Row, Storage, StorageBuilder, TimestampPrecision};
+          <pre><code><span class="kw">use</span> tsink::{DataPoint, Label, Row, StorageBuilder};
 
 <span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
-    <span class="comment">// Create an in-memory storage instance</span>
-    <span class="kw">let</span> storage = StorageBuilder::new()
-        .with_timestamp_precision(TimestampPrecision::Seconds)
-        .build()?;
+    <span class="kw">let</span> storage = StorageBuilder::new().build()?;
 
-    <span class="comment">// Insert data points</span>
-    <span class="kw">let</span> rows = <span class="kw">vec!</span>[
-        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1600000000</span>, <span class="num">45.5</span>)),
-        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1600000060</span>, <span class="num">47.2</span>)),
-        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1600000120</span>, <span class="num">42.1</span>)),
-    ];
-    storage.insert_rows(&amp;rows)?;
+    storage.insert_rows(&amp;[
+        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1_700_000_000</span>, <span class="num">42.5</span>)),
+        Row::new(<span class="str">"cpu_usage"</span>, DataPoint::new(<span class="num">1_700_000_010</span>, <span class="num">43.1</span>)),
+        Row::with_labels(
+            <span class="str">"http_requests"</span>,
+            <span class="kw">vec!</span>[Label::new(<span class="str">"method"</span>, <span class="str">"GET"</span>), Label::new(<span class="str">"status"</span>, <span class="str">"200"</span>)],
+            DataPoint::new(<span class="num">1_700_000_000</span>, <span class="num">120u64</span>),
+        ),
+    ])?;
 
-    <span class="comment">// Query the data</span>
-    <span class="kw">let</span> points = storage.select(
-        <span class="str">"cpu_usage"</span>, &amp;[], <span class="num">1600000000</span>, <span class="num">1600000121</span>
+    <span class="comment">// Time range is [start, end) (end-exclusive)</span>
+    <span class="kw">let</span> cpu = storage.select(<span class="str">"cpu_usage"</span>, &amp;[], <span class="num">1_700_000_000</span>, <span class="num">1_700_000_100</span>)?;
+    <span class="macro">assert_eq!</span>(cpu.len(), <span class="num">2</span>);
+
+    <span class="comment">// Label order does not matter for series identity</span>
+    <span class="kw">let</span> get_200 = storage.select(
+        <span class="str">"http_requests"</span>,
+        &amp;[Label::new(<span class="str">"status"</span>, <span class="str">"200"</span>), Label::new(<span class="str">"method"</span>, <span class="str">"GET"</span>)],
+        <span class="num">1_700_000_000</span>, <span class="num">1_700_000_100</span>,
     )?;
-
-    <span class="kw">for</span> p <span class="kw">in</span> &amp;points {
-        <span class="macro">println!</span>(<span class="str">"ts={}, val={}"</span>, p.timestamp, p.value);
-    }
+    <span class="macro">assert_eq!</span>(get_200.len(), <span class="num">1</span>);
 
     storage.close()?;
     <span class="macro">Ok</span>(())
@@ -313,24 +437,27 @@ tsink = <span class="str">"0.7"</span></code></pre>
             </div>
             <span class="code-filename">persistent_storage.rs</span>
           </div>
-          <pre><code><span class="kw">use</span> tsink::{StorageBuilder, Storage, WalSyncMode};
-<span class="kw">use</span> std::time::Duration;
+          <pre><code><span class="kw">use</span> std::time::Duration;
+<span class="kw">use</span> tsink::{StorageBuilder, WalSyncMode, TimestampPrecision};
 
 <span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
-    <span class="comment">// Persistent storage with WAL and retention policy</span>
     <span class="kw">let</span> storage = StorageBuilder::new()
         .with_data_path(<span class="str">"./tsink-data"</span>)
-        .with_partition_duration(Duration::from_secs(<span class="num">3600</span>))
-        .with_retention(Duration::from_secs(<span class="num">7</span> * <span class="num">24</span> * <span class="num">3600</span>))
-        .with_wal_buffer_size(<span class="num">8192</span>)
+        .with_timestamp_precision(TimestampPrecision::Milliseconds)
+        .with_retention(Duration::from_secs(<span class="num">30</span> * <span class="num">24</span> * <span class="num">3600</span>))          <span class="comment">// 30 days</span>
+        .with_partition_duration(Duration::from_secs(<span class="num">6</span> * <span class="num">3600</span>))     <span class="comment">// 6-hour partitions</span>
+        .with_chunk_points(<span class="num">4096</span>)
+        .with_max_writers(<span class="num">16</span>)
+        .with_write_timeout(Duration::from_secs(<span class="num">60</span>))
+        .with_memory_limit(<span class="num">1024</span> * <span class="num">1024</span> * <span class="num">1024</span>)                   <span class="comment">// 1 GB</span>
+        .with_cardinality_limit(<span class="num">500_000</span>)
         .with_wal_sync_mode(WalSyncMode::Periodic(Duration::from_secs(<span class="num">1</span>)))
-        .with_max_writers(<span class="num">4</span>)
-        .with_write_timeout(Duration::from_secs(<span class="num">30</span>))
+        .with_wal_buffer_size(<span class="num">16384</span>)
         .build()?;
 
-    <span class="comment">// Data survives application restarts.</span>
-    <span class="comment">// WAL ensures durability on crash.</span>
-    <span class="comment">// Retention auto-cleans partitions older than 7 days.</span>
+    <span class="comment">// Data survives restarts. WAL ensures durability on crash.</span>
+    <span class="comment">// Retention auto-cleans data older than 30 days.</span>
+    <span class="comment">// Memory budget prevents OOM with admission backpressure.</span>
 
     storage.close()?;
     <span class="macro">Ok</span>(())
@@ -348,13 +475,13 @@ tsink = <span class="str">"0.7"</span></code></pre>
             </div>
             <span class="code-filename">labels.rs</span>
           </div>
-          <pre><code><span class="kw">use</span> tsink::{DataPoint, Label, Row, Storage, StorageBuilder};
+          <pre><code><span class="kw">use</span> tsink::{DataPoint, Label, Row, StorageBuilder};
 
 <span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
     <span class="kw">let</span> storage = StorageBuilder::new().build()?;
 
     <span class="comment">// Insert with multi-dimensional labels</span>
-    <span class="kw">let</span> rows = <span class="kw">vec!</span>[
+    storage.insert_rows(&amp;[
         Row::with_labels(
             <span class="str">"http_requests"</span>,
             <span class="kw">vec!</span>[
@@ -362,17 +489,23 @@ tsink = <span class="str">"0.7"</span></code></pre>
                 Label::new(<span class="str">"status"</span>, <span class="str">"200"</span>),
                 Label::new(<span class="str">"endpoint"</span>, <span class="str">"/api/users"</span>),
             ],
-            DataPoint::new(<span class="num">1600000000</span>, <span class="num">150.0</span>),
+            DataPoint::new(<span class="num">1_700_000_000</span>, <span class="num">150.0</span>),
         ),
-    ];
-    storage.insert_rows(&amp;rows)?;
+        Row::with_labels(
+            <span class="str">"http_requests"</span>,
+            <span class="kw">vec!</span>[
+                Label::new(<span class="str">"method"</span>, <span class="str">"POST"</span>),
+                Label::new(<span class="str">"status"</span>, <span class="str">"201"</span>),
+            ],
+            DataPoint::new(<span class="num">1_700_000_000</span>, <span class="num">25.0</span>),
+        ),
+    ])?;
 
-    <span class="comment">// Query with label filters</span>
-    <span class="kw">let</span> points = storage.select(
-        <span class="str">"http_requests"</span>,
-        &amp;[Label::new(<span class="str">"method"</span>, <span class="str">"GET"</span>)],
-        <span class="num">1600000000</span>, <span class="num">1600000100</span>,
-    )?;
+    <span class="comment">// Query all label combinations for a metric</span>
+    <span class="kw">let</span> all = storage.select_all(<span class="str">"http_requests"</span>, <span class="num">1_700_000_000</span>, <span class="num">1_700_000_100</span>)?;
+    <span class="kw">for</span> (labels, points) <span class="kw">in</span> &amp;all {
+        <span class="macro">println!</span>(<span class="str">"Labels: {:?}, Points: {}"</span>, labels, points.len());
+    }
 
     storage.close()?;
     <span class="macro">Ok</span>(())
@@ -390,23 +523,151 @@ tsink = <span class="str">"0.7"</span></code></pre>
             </div>
             <span class="code-filename">aggregation.rs</span>
           </div>
-          <pre><code><span class="kw">use</span> tsink::{Aggregation, QueryOptions, Storage, StorageBuilder};
+          <pre><code><span class="kw">use</span> tsink::{Aggregation, DataPoint, QueryOptions, Row, StorageBuilder};
 
 <span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
     <span class="kw">let</span> storage = StorageBuilder::new().build()?;
 
-    <span class="comment">// ... insert data ...</span>
+    storage.insert_rows(&amp;[
+        Row::new(<span class="str">"cpu"</span>, DataPoint::new(<span class="num">1_000</span>, <span class="num">1.0</span>)),
+        Row::new(<span class="str">"cpu"</span>, DataPoint::new(<span class="num">2_000</span>, <span class="num">2.0</span>)),
+        Row::new(<span class="str">"cpu"</span>, DataPoint::new(<span class="num">3_000</span>, <span class="num">3.0</span>)),
+        Row::new(<span class="str">"cpu"</span>, DataPoint::new(<span class="num">4_500</span>, <span class="num">1.5</span>)),
+    ])?;
 
-    <span class="comment">// Downsample + aggregate: 2-second buckets with average</span>
+    <span class="comment">// Downsample: 2-second buckets with average aggregation</span>
     <span class="kw">let</span> opts = QueryOptions::new(<span class="num">1_000</span>, <span class="num">5_000</span>)
         .with_downsample(<span class="num">2_000</span>, Aggregation::Avg)
         .with_pagination(<span class="num">0</span>, <span class="macro">Some</span>(<span class="num">10</span>));
 
     <span class="kw">let</span> buckets = storage.select_with_options(<span class="str">"cpu"</span>, opts)?;
+    <span class="macro">assert_eq!</span>(buckets.len(), <span class="num">2</span>);
 
-    <span class="comment">// Available aggregations: Sum, Min, Max, Avg, Last</span>
-    <span class="kw">for</span> dp <span class="kw">in</span> &amp;buckets {
-        <span class="macro">println!</span>(<span class="str">"bucket ts={}, avg={}"</span>, dp.timestamp, dp.value);
+    <span class="comment">// 12 aggregation functions available:</span>
+    <span class="comment">// Sum, Min, Max, Avg, First, Last, Count,</span>
+    <span class="comment">// Median, Range, Variance, StdDev, None</span>
+
+    storage.close()?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-promql-example">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">promql_example.rs</span>
+          </div>
+          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8.0", features = ["promql"] }</span>
+<span class="kw">use</span> std::sync::Arc;
+<span class="kw">use</span> tsink::{StorageBuilder, DataPoint, Row};
+<span class="kw">use</span> tsink::promql::Engine;
+
+<span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="kw">let</span> storage = StorageBuilder::new().build()?;
+
+    storage.insert_rows(&amp;[
+        Row::new(<span class="str">"http_requests_total"</span>, DataPoint::new(<span class="num">1_000</span>, <span class="num">10.0</span>)),
+        Row::new(<span class="str">"http_requests_total"</span>, DataPoint::new(<span class="num">2_000</span>, <span class="num">25.0</span>)),
+        Row::new(<span class="str">"http_requests_total"</span>, DataPoint::new(<span class="num">3_000</span>, <span class="num">50.0</span>)),
+    ])?;
+
+    <span class="kw">let</span> engine = Engine::new(storage.clone());
+
+    <span class="comment">// Instant query &mdash; evaluates at a single point in time</span>
+    <span class="kw">let</span> result = engine.instant_query(<span class="str">"http_requests_total"</span>, <span class="num">3_000</span>)?;
+
+    <span class="comment">// Range query &mdash; evaluates at each step across a time window</span>
+    <span class="kw">let</span> result = engine.range_query(
+        <span class="str">"rate(http_requests_total[1m])"</span>,
+        <span class="num">1_000</span>, <span class="num">3_000</span>, <span class="num">1_000</span>,
+    )?;
+
+    <span class="comment">// Supports: rate, irate, increase, avg_over_time, sum_over_time,</span>
+    <span class="comment">// abs, ceil, floor, round, clamp, label_replace, label_join,</span>
+    <span class="comment">// sort, sort_desc, scalar, vector, time, timestamp, and more</span>
+
+    storage.close()?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-async-example">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">async_usage.rs</span>
+          </div>
+          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8.0", features = ["async-storage"] }</span>
+<span class="kw">use</span> tsink::{AsyncStorageBuilder, DataPoint, Row};
+
+<span class="kw">async fn</span> <span class="fn">run</span>() -> tsink::<span class="ty">Result</span>&lt;()&gt; {
+    <span class="kw">let</span> storage = AsyncStorageBuilder::new()
+        .with_queue_capacity(<span class="num">1024</span>)
+        .with_read_workers(<span class="num">4</span>)
+        .build()?;
+
+    <span class="comment">// Async insert</span>
+    storage.insert_rows(<span class="kw">vec!</span>[
+        Row::new(<span class="str">"cpu"</span>, DataPoint::new(<span class="num">1</span>, <span class="num">42.0</span>)),
+    ]).await?;
+
+    <span class="comment">// Async query</span>
+    <span class="kw">let</span> points = storage.select(<span class="str">"cpu"</span>, <span class="kw">vec!</span>[], <span class="num">0</span>, <span class="num">10</span>).await?;
+    <span class="macro">assert_eq!</span>(points.len(), <span class="num">1</span>);
+
+    <span class="comment">// Synchronous introspection available too:</span>
+    <span class="comment">// storage.memory_used(), storage.memory_budget(),</span>
+    <span class="comment">// storage.inner(), storage.into_inner()</span>
+
+    storage.close().await?;
+    <span class="macro">Ok</span>(())
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-series">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">series_discovery.rs</span>
+          </div>
+          <pre><code><span class="kw">use</span> tsink::{SeriesSelection, SeriesMatcher, StorageBuilder};
+
+<span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="kw">let</span> storage = StorageBuilder::new().build()?;
+    <span class="comment">// ... insert data ...</span>
+
+    <span class="comment">// Matcher-based series discovery</span>
+    <span class="kw">let</span> selection = SeriesSelection::new()
+        .with_metric(<span class="str">"http_requests"</span>)
+        .with_matcher(SeriesMatcher::equal(<span class="str">"method"</span>, <span class="str">"GET"</span>))
+        .with_matcher(SeriesMatcher::regex_match(<span class="str">"status"</span>, <span class="str">"2.."</span>))
+        .with_time_range(<span class="num">1_700_000_000</span>, <span class="num">1_700_100_000</span>);
+
+    <span class="kw">let</span> series = storage.select_series(&amp;selection)?;
+
+    <span class="comment">// Matcher operators: = (equal), != (not_equal),</span>
+    <span class="comment">//   =~ (regex_match), !~ (regex_no_match)</span>
+
+    <span class="comment">// Also: list_metrics() and list_metrics_with_wal()</span>
+    <span class="kw">let</span> all_series = storage.list_metrics()?;
+    <span class="kw">for</span> s <span class="kw">in</span> &amp;all_series {
+        <span class="macro">println!</span>(<span class="str">"Metric: {}, Labels: {:?}"</span>, s.name, s.labels);
     }
 
     storage.close()?;
@@ -417,53 +678,351 @@ tsink = <span class="str">"0.7"</span></code></pre>
     </div>
   </section>
 
+  <!-- PromQL Engine -->
+  <section id="promql" class="promql-section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Full PromQL engine.<br>No external dependencies.</h2>
+        <p>Enable with the <code>promql</code> feature flag. Lexer, parser, and evaluator built from scratch.</p>
+      </div>
+      <div class="promql-grid">
+        <div class="promql-category">
+          <h4>Rate &amp; Counter Functions</h4>
+          <div class="promql-funcs">
+            <code>rate</code>
+            <code>irate</code>
+            <code>increase</code>
+          </div>
+        </div>
+        <div class="promql-category">
+          <h4>Over-Time Functions</h4>
+          <div class="promql-funcs">
+            <code>avg_over_time</code>
+            <code>sum_over_time</code>
+            <code>min_over_time</code>
+            <code>max_over_time</code>
+            <code>count_over_time</code>
+          </div>
+        </div>
+        <div class="promql-category">
+          <h4>Math Functions</h4>
+          <div class="promql-funcs">
+            <code>abs</code>
+            <code>ceil</code>
+            <code>floor</code>
+            <code>round</code>
+            <code>clamp</code>
+            <code>clamp_min</code>
+            <code>clamp_max</code>
+          </div>
+        </div>
+        <div class="promql-category">
+          <h4>Type &amp; Time</h4>
+          <div class="promql-funcs">
+            <code>scalar</code>
+            <code>vector</code>
+            <code>time</code>
+            <code>timestamp</code>
+          </div>
+        </div>
+        <div class="promql-category">
+          <h4>Sorting &amp; Labels</h4>
+          <div class="promql-funcs">
+            <code>sort</code>
+            <code>sort_desc</code>
+            <code>label_replace</code>
+            <code>label_join</code>
+          </div>
+        </div>
+        <div class="promql-category">
+          <h4>Aggregation Operators</h4>
+          <div class="promql-funcs">
+            <code>sum</code>
+            <code>avg</code>
+            <code>min</code>
+            <code>max</code>
+            <code>count</code>
+            <code>topk</code>
+            <code>bottomk</code>
+          </div>
+        </div>
+        <div class="promql-category promql-category-wide">
+          <h4>Binary Operators</h4>
+          <div class="promql-funcs">
+            <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>%</code> <code>^</code>
+            <code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code>
+            <code>and</code> <code>or</code> <code>unless</code>
+          </div>
+          <p class="promql-note">With <code>on</code>/<code>ignoring</code> vector matching, <code>by</code>/<code>without</code> grouping, and <code>bool</code> modifier.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Server Mode -->
+  <section id="server" class="server-section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Prometheus-compatible<br>server mode.</h2>
+        <p>Run tsink as a standalone HTTP server with remote read/write, TLS, and bearer auth.</p>
+      </div>
+      <div class="server-content">
+        <div class="server-left">
+          <div class="code-window">
+            <div class="code-titlebar">
+              <div class="code-dots">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+              </div>
+              <span class="code-filename">terminal</span>
+            </div>
+            <pre><code><span class="comment"># Start the server</span>
+<span class="kw">$</span> cargo run -p tsink-server -- server \
+    --listen <span class="num">127.0.0.1:9201</span> \
+    --data-path <span class="str">./tsink-data</span> \
+    --memory-limit <span class="str">1G</span> \
+    --retention <span class="str">14d</span>
+
+<span class="comment"># PromQL instant query</span>
+<span class="kw">$</span> curl <span class="str">'http://localhost:9201/api/v1/query?query=up&amp;time=1700000000'</span>
+
+<span class="comment"># PromQL range query</span>
+<span class="kw">$</span> curl <span class="str">'http://localhost:9201/api/v1/query_range?query=up&amp;start=1700000000&amp;end=1700000060&amp;step=15s'</span>
+
+<span class="comment"># Ingest Prometheus text format</span>
+<span class="kw">$</span> curl -X POST http://localhost:9201/api/v1/import/prometheus \
+    -H <span class="str">'Content-Type: text/plain'</span> \
+    --data-binary <span class="str">@metrics.txt</span></code></pre>
+          </div>
+        </div>
+        <div class="server-right">
+          <div class="server-endpoints">
+            <h4>Endpoints</h4>
+            <div class="endpoint-list">
+              <div class="endpoint">
+                <span class="endpoint-method get">GET</span>
+                <code>/healthz</code>
+                <span class="endpoint-desc">Health check</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method get">GET</span>
+                <code>/ready</code>
+                <span class="endpoint-desc">Readiness probe</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method get">GET</span>
+                <code>/metrics</code>
+                <span class="endpoint-desc">Self-monitoring</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method both">GET/POST</span>
+                <code>/api/v1/query</code>
+                <span class="endpoint-desc">PromQL instant</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method both">GET/POST</span>
+                <code>/api/v1/query_range</code>
+                <span class="endpoint-desc">PromQL range</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method post">POST</span>
+                <code>/api/v1/write</code>
+                <span class="endpoint-desc">Remote write</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method post">POST</span>
+                <code>/api/v1/read</code>
+                <span class="endpoint-desc">Remote read</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method get">GET</span>
+                <code>/api/v1/series</code>
+                <span class="endpoint-desc">Series metadata</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method get">GET</span>
+                <code>/api/v1/labels</code>
+                <span class="endpoint-desc">Label names</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method post">POST</span>
+                <code>/api/v1/import/prometheus</code>
+                <span class="endpoint-desc">Text ingestion</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method get">GET</span>
+                <code>/api/v1/status/tsdb</code>
+                <span class="endpoint-desc">TSDB stats</span>
+              </div>
+            </div>
+          </div>
+          <div class="server-features">
+            <div class="server-feature">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>TLS with PEM certificates</span>
+            </div>
+            <div class="server-feature">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>Bearer token authentication</span>
+            </div>
+            <div class="server-feature">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <span>Graceful SIGTERM/SIGINT shutdown</span>
+            </div>
+            <div class="server-feature">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Configurable retention &amp; precision</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="prometheus-config">
+        <h4>Prometheus Integration</h4>
+        <div class="code-window code-window-sm">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <span class="code-filename">prometheus.yml</span>
+          </div>
+          <pre><code><span class="kw">remote_write</span>:
+  - <span class="kw">url</span>: <span class="str">http://127.0.0.1:9201/api/v1/write</span>
+
+<span class="kw">remote_read</span>:
+  - <span class="kw">url</span>: <span class="str">http://127.0.0.1:9201/api/v1/read</span></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Architecture -->
   <section id="architecture" class="architecture">
     <div class="container">
       <div class="section-header">
         <h2>How it works under the hood.</h2>
-        <p>A clean, modular architecture designed for reliability.</p>
+        <p>LSM-tree architecture with sharded concurrency and dual encoding lanes.</p>
       </div>
       <div class="arch-diagram">
         <div class="arch-layer arch-layer-app">
-          <div class="arch-layer-label">Application Layer</div>
+          <div class="arch-layer-label">Public API</div>
           <div class="arch-boxes">
-            <div class="arch-box"><code>insert_rows()</code></div>
-            <div class="arch-box"><code>select()</code></div>
-            <div class="arch-box"><code>select_with_options()</code></div>
+            <div class="arch-box"><code>StorageBuilder</code></div>
+            <div class="arch-box"><code>Storage</code></div>
+            <div class="arch-box"><code>AsyncStorage</code></div>
+            <div class="arch-box"><code>PromQL Engine</code></div>
           </div>
         </div>
         <div class="arch-arrow">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
         </div>
         <div class="arch-layer arch-layer-engine">
-          <div class="arch-layer-label">Storage Engine</div>
+          <div class="arch-layer-label">Engine (64-shard partitioned)</div>
           <div class="arch-boxes">
-            <div class="arch-box">Worker Pool</div>
-            <div class="arch-box">Gorilla Encoder</div>
-            <div class="arch-box">Label Index</div>
+            <div class="arch-box">Writers<br><small>N threads, sharded locks</small></div>
+            <div class="arch-box">Readers<br><small>concurrent, lock-free</small></div>
+            <div class="arch-box">Compactor<br><small>background merges</small></div>
           </div>
         </div>
         <div class="arch-arrow">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
         </div>
         <div class="arch-layer arch-layer-partition">
-          <div class="arch-layer-label">Partition Layer</div>
+          <div class="arch-layer-label">Data Pipeline</div>
           <div class="arch-boxes">
-            <div class="arch-box arch-box-active">Active<br><small>writable</small></div>
-            <div class="arch-box arch-box-buffer">Buffer<br><small>out-of-order</small></div>
-            <div class="arch-box arch-box-disk">Disk<br><small>mmap, read-only</small></div>
+            <div class="arch-box arch-box-active">Active Chunks<br><small>in-memory, writable</small></div>
+            <div class="arch-box arch-box-buffer">Immutable Chunks<br><small>flushed, read-only</small></div>
+            <div class="arch-box arch-box-disk">Segments<br><small>L0 &rarr; L1 &rarr; L2 disk</small></div>
           </div>
         </div>
         <div class="arch-arrow">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
         </div>
         <div class="arch-layer arch-layer-durability">
-          <div class="arch-layer-label">Durability Layer</div>
+          <div class="arch-layer-label">Storage &amp; Durability</div>
           <div class="arch-boxes">
-            <div class="arch-box">Write-Ahead Log</div>
-            <div class="arch-box">Memory-Mapped Files</div>
-            <div class="arch-box">Retention Policy</div>
+            <div class="arch-box">WAL<br><small>CRC32 + fsync</small></div>
+            <div class="arch-box">Numeric Lane<br><small>Gorilla, delta, RLE</small></div>
+            <div class="arch-box">Blob Lane<br><small>bytes, string</small></div>
+            <div class="arch-box">Series Index<br><small>inverted postings</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="arch-details">
+        <div class="arch-detail-item">
+          <strong>Time Partitions</strong>
+          <span>Data split by wall-clock intervals (default: 1 hour)</span>
+        </div>
+        <div class="arch-detail-item">
+          <strong>Chunks</strong>
+          <span>2048 points per chunk, delta-of-delta timestamps, per-lane encoding</span>
+        </div>
+        <div class="arch-detail-item">
+          <strong>Segment Files</strong>
+          <span>Immutable, CRC32c + XXH64 checksummed: manifest, chunks, index, series, postings</span>
+        </div>
+        <div class="arch-detail-item">
+          <strong>Background Tasks</strong>
+          <span>Flush every 250ms, compact every 5s &mdash; transparent to reads and writes</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Compression Detail -->
+  <section class="compression-section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Adaptive compression codecs.</h2>
+        <p>The encoder tries all applicable candidates and picks the most compact representation.</p>
+      </div>
+      <div class="codec-grid">
+        <div class="codec-group">
+          <h4>Timestamp Codecs</h4>
+          <div class="codec-list">
+            <div class="codec-item">
+              <code>Fixed-step RLE</code>
+              <span>Run-length encoding for fixed-interval timestamps</span>
+            </div>
+            <div class="codec-item">
+              <code>Delta-of-delta bitpack</code>
+              <span>Primary strategy with bit-packing</span>
+            </div>
+            <div class="codec-item">
+              <code>Delta varint</code>
+              <span>Varint-encoded deltas for irregular intervals</span>
+            </div>
+          </div>
+        </div>
+        <div class="codec-group">
+          <h4>Value Codecs</h4>
+          <div class="codec-list">
+            <div class="codec-item">
+              <code>Gorilla XOR</code>
+              <span>XOR of IEEE 754 floats (f64)</span>
+            </div>
+            <div class="codec-item">
+              <code>Zigzag delta bitpack</code>
+              <span>Zigzag + delta + bit-packing (i64)</span>
+            </div>
+            <div class="codec-item">
+              <code>Delta bitpack</code>
+              <span>Delta encoding + bit-packing (u64)</span>
+            </div>
+            <div class="codec-item">
+              <code>Constant RLE</code>
+              <span>Run-length for constant values (any numeric)</span>
+            </div>
+            <div class="codec-item">
+              <code>Bool bitpack</code>
+              <span>1 bit per value (bool)</span>
+            </div>
+            <div class="codec-item">
+              <code>Delta block</code>
+              <span>Blob lane compression (bytes, string)</span>
+            </div>
           </div>
         </div>
       </div>
@@ -502,16 +1061,28 @@ tsink = <span class="str">"0.7"</span></code></pre>
               <span class="api-desc">Query points by metric name, label filters, and time range</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">select_all(&amp;self, metric, start, end) -&gt; Result&lt;Vec&lt;(Vec&lt;Label&gt;, Vec&lt;DataPoint&gt;)&gt;&gt;</code>
+              <code class="api-sig">select_into(&amp;self, metric, labels, start, end, buf) -&gt; Result&lt;()&gt;</code>
+              <span class="api-desc">Write into a caller-provided buffer for allocation reuse</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">select_all(&amp;self, metric, start, end) -&gt; Result&lt;Vec&lt;(Labels, Points)&gt;&gt;</code>
               <span class="api-desc">Query all label combinations for a metric</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">select_with_options(&amp;self, metric, opts: QueryOptions) -&gt; Result&lt;Vec&lt;DataPoint&gt;&gt;</code>
-              <span class="api-desc">Advanced queries with aggregation, downsampling, and pagination</span>
+              <code class="api-sig">select_with_options(&amp;self, metric, opts) -&gt; Result&lt;Vec&lt;DataPoint&gt;&gt;</code>
+              <span class="api-desc">Downsampling, aggregation, custom bytes aggregation, pagination</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">select_series(&amp;self, selection: &amp;SeriesSelection) -&gt; Result&lt;...&gt;</code>
+              <span class="api-desc">Matcher-based series discovery (=, !=, =~, !~)</span>
             </div>
             <div class="api-item">
               <code class="api-sig">list_metrics(&amp;self) -&gt; Result&lt;Vec&lt;MetricSeries&gt;&gt;</code>
-              <span class="api-desc">Discover all metric series stored in the database</span>
+              <span class="api-desc">Discover all metric series in the database</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">list_metrics_with_wal(&amp;self) -&gt; Result&lt;Vec&lt;MetricSeries&gt;&gt;</code>
+              <span class="api-desc">Like list_metrics, including WAL-only series</span>
             </div>
             <div class="api-item">
               <code class="api-sig">close(&amp;self) -&gt; Result&lt;()&gt;</code>
@@ -543,23 +1114,23 @@ tsink = <span class="str">"0.7"</span></code></pre>
             </div>
             <div class="api-item">
               <code class="api-sig">.with_retention(duration) -&gt; Self</code>
-              <span class="api-desc">Set automatic data cleanup policy</span>
+              <span class="api-desc">Set automatic data cleanup policy (default: 14 days)</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">.with_timestamp_precision(p) -&gt; Self</code>
-              <span class="api-desc">Choose Nanoseconds, Microseconds, Milliseconds, or Seconds</span>
+              <code class="api-sig">.with_memory_limit(bytes) -&gt; Self</code>
+              <span class="api-desc">Hard in-memory budget with admission backpressure</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">.with_partition_duration(dur) -&gt; Self</code>
-              <span class="api-desc">Time range covered by each partition</span>
+              <code class="api-sig">.with_cardinality_limit(n) -&gt; Self</code>
+              <span class="api-desc">Cap total unique metric+label series</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">.with_wal_enabled(bool) -&gt; Self</code>
-              <span class="api-desc">Toggle write-ahead logging for crash recovery</span>
+              <code class="api-sig">.with_wal_size_limit(bytes) -&gt; Self</code>
+              <span class="api-desc">Hard cap on total WAL bytes on disk</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">.with_wal_sync_mode(mode) -&gt; Self</code>
-              <span class="api-desc">Set WAL fsync strategy for durability vs throughput</span>
+              <code class="api-sig">.with_chunk_points(n) -&gt; Self</code>
+              <span class="api-desc">Target points per chunk before flushing (default: 2048)</span>
             </div>
             <div class="api-item">
               <code class="api-sig">.build() -&gt; Result&lt;Arc&lt;dyn Storage&gt;&gt;</code>
@@ -576,14 +1147,18 @@ tsink = <span class="str">"0.7"</span></code></pre>
             </div>
             <div>
               <h3>Core Types</h3>
-              <span class="api-category-badge">structs</span>
+              <span class="api-category-badge">structs &amp; enums</span>
             </div>
           </div>
           <p class="api-category-desc">The fundamental data structures for time-series storage.</p>
           <div class="api-items">
             <div class="api-item">
-              <code class="api-sig">DataPoint { timestamp: i64, value: f64 }</code>
-              <span class="api-desc">Smallest unit of time-series data</span>
+              <code class="api-sig">DataPoint { timestamp: i64, value: Value }</code>
+              <span class="api-desc">Timestamp + typed value (f64, i64, u64, bool, bytes, string)</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">Value::F64 | I64 | U64 | Bool | Bytes | String</code>
+              <span class="api-desc">Six typed variants with auto From conversions</span>
             </div>
             <div class="api-item">
               <code class="api-sig">Row::new(metric, data_point)</code>
@@ -598,8 +1173,8 @@ tsink = <span class="str">"0.7"</span></code></pre>
               <span class="api-desc">Key-value pair for dimensional tagging</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">MetricSeries { name, labels }</code>
-              <span class="api-desc">Unique metric identified by name and label set</span>
+              <code class="api-sig">Codec / Aggregator traits</code>
+              <span class="api-desc">Custom bytes encoding and aggregation logic</span>
             </div>
           </div>
         </div>
@@ -615,27 +1190,27 @@ tsink = <span class="str">"0.7"</span></code></pre>
               <span class="api-category-badge">structs + enums</span>
             </div>
           </div>
-          <p class="api-category-desc">Advanced query customization with downsampling and aggregation.</p>
+          <p class="api-category-desc">Advanced query customization with downsampling, aggregation, and series discovery.</p>
           <div class="api-items">
             <div class="api-item">
               <code class="api-sig">QueryOptions::new(start, end)</code>
               <span class="api-desc">Create a time-range query</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">.with_labels(labels) -&gt; Self</code>
-              <span class="api-desc">Add label filters to narrow results</span>
-            </div>
-            <div class="api-item">
               <code class="api-sig">.with_downsample(interval, agg) -&gt; Self</code>
               <span class="api-desc">Bucket data into time intervals with aggregation</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">.with_pagination(offset, limit) -&gt; Self</code>
-              <span class="api-desc">Limit and paginate query results</span>
+              <code class="api-sig">.with_custom_bytes_aggregation(codec, agg)</code>
+              <span class="api-desc">Custom aggregation for non-numeric data</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">Aggregation::{ Sum, Min, Max, Avg, Last }</code>
-              <span class="api-desc">Aggregation functions for downsampling or full-series reduction</span>
+              <code class="api-sig">Aggregation::{ Sum, Min, Max, Avg, First, Last, Count, Median, Range, Variance, StdDev }</code>
+              <span class="api-desc">12 built-in aggregation functions</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">SeriesSelection / SeriesMatcher</code>
+              <span class="api-desc">Matcher-based series discovery with regex support</span>
             </div>
           </div>
         </div>
@@ -647,27 +1222,63 @@ tsink = <span class="str">"0.7"</span></code></pre>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </div>
             <div>
-              <h3>Configuration Enums</h3>
+              <h3>Configuration &amp; Errors</h3>
               <span class="api-category-badge">enums</span>
             </div>
           </div>
-          <p class="api-category-desc">Enums for precision, durability, and error handling.</p>
+          <p class="api-category-desc">Enums for precision, durability, and comprehensive error handling.</p>
           <div class="api-items">
             <div class="api-item">
               <code class="api-sig">TimestampPrecision::{ Nanoseconds, Microseconds, Milliseconds, Seconds }</code>
               <span class="api-desc">Unit for interpreting timestamp values</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">WalSyncMode::PerAppend</code>
-              <span class="api-desc">Fsync every write for strongest durability</span>
+              <code class="api-sig">WalSyncMode::{ PerAppend, Periodic(Duration) }</code>
+              <span class="api-desc">WAL fsync strategy for durability vs throughput</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">WalSyncMode::Periodic(Duration)</code>
-              <span class="api-desc">Fsync at intervals for higher throughput</span>
+              <code class="api-sig">TsinkError::{ InvalidTimeRange, WriteTimeout, MemoryBudgetExceeded, CardinalityLimitExceeded, WalSizeLimitExceeded, ValueTypeMismatch, DataCorruption, ... }</code>
+              <span class="api-desc">Comprehensive error types for all failure modes</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PromQL & Async -->
+        <div class="api-category api-category-purple">
+          <div class="api-category-header">
+            <div class="api-category-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <div>
+              <h3>PromQL &amp; Async</h3>
+              <span class="api-category-badge">feature-gated</span>
+            </div>
+          </div>
+          <p class="api-category-desc">Optional engines enabled via Cargo feature flags.</p>
+          <div class="api-items">
+            <div class="api-item">
+              <code class="api-sig">promql::Engine::new(storage) -&gt; Engine</code>
+              <span class="api-desc">Create PromQL engine over a storage handle</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">TsinkError / Result&lt;T&gt;</code>
-              <span class="api-desc">Unified error type and result alias for all operations</span>
+              <code class="api-sig">engine.instant_query(query, time) -&gt; Result&lt;...&gt;</code>
+              <span class="api-desc">Evaluate PromQL at a single timestamp</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">engine.range_query(query, start, end, step) -&gt; Result&lt;...&gt;</code>
+              <span class="api-desc">Evaluate PromQL across a time window</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">AsyncStorageBuilder::new().build() -&gt; Result&lt;AsyncStorage&gt;</code>
+              <span class="api-desc">Runtime-agnostic async facade with bounded queues</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">async_storage.insert_rows(rows).await</code>
+              <span class="api-desc">Async insert via dedicated worker threads</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">async_storage.select(metric, labels, start, end).await</code>
+              <span class="api-desc">Async query with configurable read workers</span>
             </div>
           </div>
         </div>
@@ -695,13 +1306,23 @@ tsink = <span class="str">"0.7"</span></code></pre>
           <tbody>
             <tr>
               <td><code>with_data_path(path)</code></td>
-              <td>Directory for persistent storage</td>
+              <td>Directory for persistent segment files and WAL</td>
               <td><span class="default-val">None (in-memory)</span></td>
+            </tr>
+            <tr>
+              <td><code>with_chunk_points(n)</code></td>
+              <td>Target data points per chunk before flushing</td>
+              <td><span class="default-val">2048</span></td>
             </tr>
             <tr>
               <td><code>with_retention(dur)</code></td>
               <td>How long to keep data before auto-cleanup</td>
               <td><span class="default-val">14 days</span></td>
+            </tr>
+            <tr>
+              <td><code>with_retention_enforced(bool)</code></td>
+              <td>Enforce retention window (false keeps data forever)</td>
+              <td><span class="default-val">true</span></td>
             </tr>
             <tr>
               <td><code>with_timestamp_precision(p)</code></td>
@@ -710,7 +1331,7 @@ tsink = <span class="str">"0.7"</span></code></pre>
             </tr>
             <tr>
               <td><code>with_max_writers(n)</code></td>
-              <td>Maximum concurrent write workers</td>
+              <td>Maximum concurrent write workers (cgroup-aware)</td>
               <td><span class="default-val">CPU count</span></td>
             </tr>
             <tr>
@@ -724,9 +1345,24 @@ tsink = <span class="str">"0.7"</span></code></pre>
               <td><span class="default-val">1 hour</span></td>
             </tr>
             <tr>
+              <td><code>with_memory_limit(bytes)</code></td>
+              <td>Hard in-memory budget with admission backpressure</td>
+              <td><span class="default-val">Unlimited</span></td>
+            </tr>
+            <tr>
+              <td><code>with_cardinality_limit(n)</code></td>
+              <td>Max unique metric + label-set series</td>
+              <td><span class="default-val">Unlimited</span></td>
+            </tr>
+            <tr>
               <td><code>with_wal_enabled(bool)</code></td>
               <td>Enable write-ahead logging for durability</td>
               <td><span class="default-val">true</span></td>
+            </tr>
+            <tr>
+              <td><code>with_wal_sync_mode(mode)</code></td>
+              <td>WAL fsync strategy: <code>Periodic(Duration)</code> or <code>PerAppend</code></td>
+              <td><span class="default-val">Periodic(1s)</span></td>
             </tr>
             <tr>
               <td><code>with_wal_buffer_size(n)</code></td>
@@ -734,9 +1370,9 @@ tsink = <span class="str">"0.7"</span></code></pre>
               <td><span class="default-val">4096</span></td>
             </tr>
             <tr>
-              <td><code>with_wal_sync_mode(mode)</code></td>
-              <td>WAL fsync strategy: <code>Periodic(Duration)</code> or <code>PerAppend</code></td>
-              <td><span class="default-val">Periodic(1s)</span></td>
+              <td><code>with_wal_size_limit(bytes)</code></td>
+              <td>Hard cap on total WAL bytes across all segments</td>
+              <td><span class="default-val">Unlimited</span></td>
             </tr>
           </tbody>
         </table>
@@ -749,13 +1385,14 @@ tsink = <span class="str">"0.7"</span></code></pre>
     <div class="container">
       <div class="cta-card">
         <h2>Ready to embed a time-series engine?</h2>
-        <p>Add tsink to your Rust project and start storing millions of data points with minimal overhead.</p>
+        <p>Add tsink to your Rust project. Store millions of data points with sub-byte compression, query with PromQL, or run it as a Prometheus-compatible server.</p>
         <div class="cta-actions">
           <a href="https://github.com/h2337/tsink" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
             <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
             View on GitHub
           </a>
           <a href="https://crates.io/crates/tsink" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">crates.io</a>
+          <a href="https://docs.rs/tsink" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">docs.rs</a>
         </div>
       </div>
     </div>
