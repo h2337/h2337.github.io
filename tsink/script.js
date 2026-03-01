@@ -59,28 +59,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   });
 });
 
-// ===== Intersection Observer for fade-in animations =====
-const observerOptions = {
-  threshold: 0.1,
-  rootMargin: '0px 0px -40px 0px'
-};
-
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('fade-in');
-      observer.unobserve(entry.target);
-    }
-  });
-}, observerOptions);
-
-// Observe all animatable elements
-document.querySelectorAll(
-  '.feature-card, .bench-card, .arch-layer, .api-category, .changelog-item, .promql-category, .codec-group, .arch-detail-item, .server-endpoints, .endpoint'
-).forEach((el, i) => {
-  el.style.animationDelay = `${i * 0.05}s`;
-  observer.observe(el);
-});
 
 // ===== Animate benchmark bars on scroll =====
 const benchObserver = new IntersectionObserver((entries) => {
