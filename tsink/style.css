@@ -1184,6 +1184,8 @@ body {
 .api-category-navy:hover { border-left-color: var(--navy-light); }
 .api-category-purple { border-left-color: var(--purple); }
 .api-category-purple:hover { border-left-color: var(--purple); }
+.api-category-yellow { border-left-color: var(--yellow); }
+.api-category-yellow:hover { border-left-color: var(--yellow); }
 
 .api-category-header {
   display: flex;
@@ -1213,6 +1215,7 @@ body {
 .api-category-green .api-category-icon { background: rgba(39, 174, 96, 0.1); color: var(--green); }
 .api-category-navy .api-category-icon { background: rgba(44, 62, 80, 0.08); color: var(--navy); }
 .api-category-purple .api-category-icon { background: rgba(142, 68, 173, 0.1); color: var(--purple); }
+.api-category-yellow .api-category-icon { background: rgba(243, 156, 18, 0.1); color: var(--yellow); }
 
 .api-category-header h3 {
   font-size: 1.1rem;

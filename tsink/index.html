@@ -274,6 +274,13 @@
           <h3>Container-Aware</h3>
           <p>Automatic cgroup v1/v2 detection for CPU and memory quotas. Optimal thread pool sizing in Docker, Kubernetes, and other containerized environments.</p>
         </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-python">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <h3>Python Bindings</h3>
+          <p>Native Python bindings via <a href="https://pypi.org/project/tsink-uniffi/">UniFFI</a>. Full access to the storage engine from Python with <code>pip install tsink_uniffi</code> &mdash; no performance compromise.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -1250,11 +1257,11 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
             <div>
-              <h3>PromQL &amp; Async</h3>
+              <h3>PromQL Engine</h3>
               <span class="api-category-badge">feature-gated</span>
             </div>
           </div>
-          <p class="api-category-desc">Optional engines enabled via Cargo feature flags.</p>
+          <p class="api-category-desc">Full PromQL query engine enabled via the <code>promql</code> feature flag.</p>
           <div class="api-items">
             <div class="api-item">
               <code class="api-sig">promql::Engine::new(storage) -&gt; Engine</code>
@@ -1268,6 +1275,20 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <code class="api-sig">engine.range_query(query, start, end, step) -&gt; Result&lt;...&gt;</code>
               <span class="api-desc">Evaluate PromQL across a time window</span>
             </div>
+          </div>
+        </div>
+        <div class="api-category api-category-yellow">
+          <div class="api-category-header">
+            <div class="api-category-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <div>
+              <h3>Async Storage</h3>
+              <span class="api-category-badge">feature-gated</span>
+            </div>
+          </div>
+          <p class="api-category-desc">Runtime-agnostic async facade enabled via the <code>async-storage</code> feature flag.</p>
+          <div class="api-items">
             <div class="api-item">
               <code class="api-sig">AsyncStorageBuilder::new().build() -&gt; Result&lt;AsyncStorage&gt;</code>
               <span class="api-desc">Runtime-agnostic async facade with bounded queues</span>
