@@ -45,7 +45,7 @@
       <div class="glow glow-2"></div>
     </div>
     <div class="container hero-content">
-      <div class="badge">MIT Licensed &middot; v0.8.0</div>
+      <div class="badge">MIT Licensed &middot; v0.8</div>
       <h1>Embedded Time-Series<br>Database for <span class="gradient-text">Rust</span></h1>
       <p class="hero-subtitle">LSM-tree storage engine with Gorilla compression, PromQL queries, async API, and a Prometheus-compatible server. Embed a full time-series engine directly in your application &mdash; no external server required.</p>
       <div class="hero-actions">
@@ -364,13 +364,13 @@
             <span class="code-filename">Cargo.toml</span>
           </div>
           <pre><code><span class="comment"># Core library</span>
-tsink = <span class="str">"0.8.0"</span>
+tsink = <span class="str">"0.8"</span>
 
 <span class="comment"># With PromQL support</span>
-tsink = { version = <span class="str">"0.8.0"</span>, features = [<span class="str">"promql"</span>] }
+tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str">"promql"</span>] }
 
 <span class="comment"># With async storage</span>
-tsink = { version = <span class="str">"0.8.0"</span>, features = [<span class="str">"async-storage"</span>] }</code></pre>
+tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str">"async-storage"</span>] }</code></pre>
         </div>
       </div>
 
@@ -563,7 +563,7 @@ tsink = { version = <span class="str">"0.8.0"</span>, features = [<span class="s
             </div>
             <span class="code-filename">promql_example.rs</span>
           </div>
-          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8.0", features = ["promql"] }</span>
+          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8", features = ["promql"] }</span>
 <span class="kw">use</span> std::sync::Arc;
 <span class="kw">use</span> tsink::{StorageBuilder, DataPoint, Row};
 <span class="kw">use</span> tsink::promql::Engine;
@@ -608,7 +608,7 @@ tsink = { version = <span class="str">"0.8.0"</span>, features = [<span class="s
             </div>
             <span class="code-filename">async_usage.rs</span>
           </div>
-          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8.0", features = ["async-storage"] }</span>
+          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8", features = ["async-storage"] }</span>
 <span class="kw">use</span> tsink::{AsyncStorageBuilder, DataPoint, Row};
 
 <span class="kw">async fn</span> <span class="fn">run</span>() -> tsink::<span class="ty">Result</span>&lt;()&gt; {
