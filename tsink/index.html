@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>tsink - Embedded Time-Series Database for Rust</title>
-  <meta name="description" content="High-performance embedded time-series database for Rust with LSM-tree storage, PromQL engine, Gorilla compression, and Prometheus-compatible server mode.">
+  <meta name="description" content="Embedded time-series storage for Rust with LSM compaction, disk-backed roaring index, atomic snapshot/restore, observability snapshots, and Prometheus-compatible server mode.">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,9 +45,9 @@
       <div class="glow glow-2"></div>
     </div>
     <div class="container hero-content">
-      <div class="badge">MIT Licensed &middot; v0.8</div>
+      <div class="badge">MIT Licensed &middot; v0.9.0</div>
       <h1>Embedded Time-Series<br>Database for <span class="gradient-text">Rust</span></h1>
-      <p class="hero-subtitle">LSM-tree storage engine with Gorilla compression, PromQL queries, async API, and a Prometheus-compatible server. Embed a full time-series engine directly in your application &mdash; no external server required.</p>
+      <p class="hero-subtitle">LSM-based storage with disk-backed roaring postings, optional PromQL, atomic snapshot/restore, and structured observability counters. Embed a full time-series engine directly in your application &mdash; no external server required.</p>
       <div class="hero-actions">
         <a href="#usage" class="btn btn-primary btn-lg">Get Started</a>
         <a href="https://github.com/h2337/tsink" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">View on GitHub</a>
@@ -59,7 +59,7 @@
         </div>
         <div class="stat-divider"></div>
         <div class="stat">
-          <span class="stat-value">0.68B</span>
+          <span class="stat-value">0.4B</span>
           <span class="stat-label">Per data point</span>
         </div>
         <div class="stat-divider"></div>
@@ -69,7 +69,7 @@
         </div>
         <div class="stat-divider"></div>
         <div class="stat">
-          <span class="stat-value">23x</span>
+          <span class="stat-value">40x</span>
           <span class="stat-label">Compression ratio</span>
         </div>
       </div>
@@ -86,12 +86,13 @@
             <span class="code-filename">main.rs</span>
           </div>
           <pre><code><span class="kw">use</span> std::time::Duration;
-<span class="kw">use</span> tsink::{DataPoint, Label, Row, StorageBuilder};
+<span class="kw">use</span> tsink::{DataPoint, Label, Row, StorageBuilder, WalReplayMode, WalSyncMode};
 
 <span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
     <span class="kw">let</span> storage = StorageBuilder::new()
         .with_data_path(<span class="str">"./tsink-data"</span>)
-        .with_retention(Duration::from_secs(<span class="num">7</span> * <span class="num">24</span> * <span class="num">3600</span>))
+        .with_wal_sync_mode(WalSyncMode::Periodic(Duration::from_secs(<span class="num">1</span>)))
+        .with_wal_replay_mode(WalReplayMode::Salvage)
         .with_memory_limit(<span class="num">512</span> * <span class="num">1024</span> * <span class="num">1024</span>)
         .build()?;
 
@@ -103,9 +104,10 @@
         ),
     ])?;
 
-    <span class="comment">// PromQL query engine</span>
-    <span class="kw">let</span> engine = tsink::promql::Engine::new(storage.clone());
-    <span class="kw">let</span> result = engine.instant_query(<span class="str">"cpu_usage"</span>, <span class="num">1_700_000_000</span>)?;
+    <span class="kw">let</span> obs = storage.observability_snapshot();
+    <span class="macro">println!</span>(<span class="str">"wal_bytes={}"</span>, obs.wal.size_bytes);
+
+    storage.snapshot(std::path::Path::new(<span class="str">"./snapshots/tsink-001"</span>))?;
 
     storage.close()?;
     <span class="macro">Ok</span>(())
@@ -115,13 +117,13 @@
     </div>
   </section>
 
-  <!-- What's New in 0.8.0 -->
+  <!-- What's New in 0.9.0 -->
   <section id="whats-new" class="whats-new">
     <div class="container">
       <div class="section-header">
-        <div class="badge badge-release">New in 0.8.0</div>
-        <h2>A ground-up rewrite.</h2>
-        <p>0.8.0 is a complete storage engine rewrite with a new LSM-tree architecture, PromQL engine, and much more.</p>
+        <div class="badge badge-release">New in 0.9.0</div>
+        <h2>Durability and operability upgrade.</h2>
+        <p>0.9.0 introduces storage format v2, atomic snapshot/restore, deep observability, and tighter safety defaults. Note: persistent data from 0.8.x is not wire-compatible with 0.9.0.</p>
       </div>
       <div class="changelog-grid">
         <div class="changelog-item">
@@ -129,8 +131,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
           <div>
-            <h4>LSM-Tree Storage Engine</h4>
-            <p>Complete rewrite with L0/L1/L2 tiered compaction, background merges, and dual-lane encoding for numeric and blob data.</p>
+            <h4>Storage Format v2 + Roaring Index</h4>
+            <p>Persistent series dictionaries moved to <code>series_index.bin</code> with roaring-bitmap postings for faster matcher candidate resolution on reopen and query.</p>
           </div>
         </div>
         <div class="changelog-item">
@@ -138,8 +140,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </div>
           <div>
-            <h4>PromQL Query Engine</h4>
-            <p>Full lexer, parser, and evaluator with 23 built-in functions, 15 binary operators, and 7 aggregation operators.</p>
+            <h4>PromQL Compatibility Tightening</h4>
+            <p>Metricless selector semantics, one-to-one vector matching for binary ops, and metric-name handling in vector binary results were aligned in 0.9.0.</p>
           </div>
         </div>
         <div class="changelog-item">
@@ -147,8 +149,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           </div>
           <div>
-            <h4>Multi-Type Value System</h4>
-            <p><code>f64</code>, <code>i64</code>, <code>u64</code>, <code>bool</code>, <code>bytes</code>, and <code>string</code> &mdash; with per-type codecs and automatic <code>From</code> conversions.</p>
+            <h4>Atomic Snapshot/Restore</h4>
+            <p>Create segment-consistent, WAL-aware snapshots from live storage and restore atomically with staged publish semantics.</p>
           </div>
         </div>
         <div class="changelog-item">
@@ -156,8 +158,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </div>
           <div>
-            <h4>Async Storage &amp; Server</h4>
-            <p>Runtime-agnostic <code>AsyncStorage</code> with bounded queues, plus a tokio-based HTTP server with Prometheus remote read/write.</p>
+            <h4>Observability Snapshot API</h4>
+            <p><code>observability_snapshot()</code> now exposes structured WAL, flush, compaction, query, and health internals for diagnostics and monitoring.</p>
           </div>
         </div>
         <div class="changelog-item">
@@ -165,8 +167,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
           <div>
-            <h4>Resource Limits &amp; Backpressure</h4>
-            <p>Memory budget enforcement, series cardinality cap, and WAL size limits with graduated pressure relief.</p>
+            <h4>WAL Replay Policy + Process Lock</h4>
+            <p>Choose <code>Salvage</code> or <code>Strict</code> replay mode for corruption handling, and prevent multi-process write collisions with a per-path <code>.tsink.lock</code>.</p>
           </div>
         </div>
         <div class="changelog-item">
@@ -174,8 +176,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
           <div>
-            <h4>Segmented WAL with CRC32</h4>
-            <p>Checksummed WAL segments with fsync, idempotent replay recovery, and configurable size limits.</p>
+            <h4>Server Hardening + Admin API</h4>
+            <p><code>tsink-server</code> deepens <code>/metrics</code> and <code>/api/v1/status/tsdb</code>, and adds gated admin snapshot/restore endpoints with optional path-prefix restrictions.</p>
           </div>
         </div>
       </div>
@@ -187,7 +189,7 @@
     <div class="container">
       <div class="section-header">
         <h2>Built for performance.<br>Designed for simplicity.</h2>
-        <p>Everything you need for time-series data, nothing you don't.</p>
+        <p>Everything you need for embedded time-series workloads, with production-grade durability and introspection.</p>
       </div>
       <div class="features-grid">
         <div class="feature-card">
@@ -195,7 +197,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </div>
           <h3>Gorilla Compression</h3>
-          <p>Adaptive codec selection: Gorilla XOR for floats, delta-of-delta bitpacking, zigzag encoding, and constant RLE. Achieves <strong>~0.68 bytes per data point</strong> &mdash; a 23x compression ratio.</p>
+          <p>Adaptive codec selection across Gorilla XOR, delta/bitpack, and RLE; chunk payloads are also zstd-compressed when beneficial. Typical numeric workloads reach <strong>~0.4 bytes per point</strong> (~40x).</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-lsm">
@@ -209,7 +211,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </div>
           <h3>PromQL Engine</h3>
-          <p>Instant and range queries with 23 built-in functions including <code>rate</code>, <code>irate</code>, <code>avg_over_time</code>, and more. Full <code>by</code>/<code>without</code> aggregation support.</p>
+          <p>Instant and range queries with 20+ built-in functions, full <code>by</code>/<code>without</code> aggregation support, and 0.9.0 semantic alignment for metricless selectors and vector matching.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-thread">
@@ -230,49 +232,63 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
           <h3>Write-Ahead Logging</h3>
-          <p>Segmented WAL with CRC32 checksums and idempotent replay. Choose <code>Periodic</code> sync for throughput or <code>PerAppend</code> for strongest durability.</p>
+          <p>Segmented WAL with CRC32 checksums and idempotent replay. Choose <code>Periodic</code> or <code>PerAppend</code> sync, and pick replay policy: <code>Salvage</code> (default) or <code>Strict</code>.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-query">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3>Observability Snapshot</h3>
+          <p>Inspect structured WAL, flush, compaction, query, and health internals using <code>observability_snapshot()</code> for dashboards, alerting, and troubleshooting.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-async">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           </div>
           <h3>Async Storage</h3>
-          <p>Runtime-agnostic <code>AsyncStorage</code> with bounded queues and dedicated worker threads. Works with tokio, async-std, or any executor.</p>
+          <p>Runtime-agnostic <code>AsyncStorage</code> with bounded queues and dedicated workers. Forwards core builder options including WAL replay mode and background fail-fast.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon icon-limits">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <h3>Atomic Snapshot/Restore</h3>
+          <p>Create live, segment-consistent backups with <code>snapshot()</code> and restore atomically with <code>StorageBuilder::restore_from_snapshot</code>.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-server">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
           </div>
           <h3>Server Mode</h3>
-          <p>Prometheus-compatible HTTP server with remote read/write, PromQL HTTP API, TLS, bearer auth, text format ingestion, and graceful shutdown.</p>
+          <p>Prometheus-compatible HTTP server with remote read/write, PromQL API, TLS, bearer auth, admin snapshot/restore endpoints (gated), and deep self-observability.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-label">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
           </div>
           <h3>Series Discovery</h3>
-          <p>Matcher-based series filtering with <code>=</code>, <code>!=</code>, <code>=~</code>, <code>!~</code> operators. Discover series dynamically with <code>select_series</code> and regex label matching.</p>
+          <p>Matcher-based series filtering with <code>=</code>, <code>!=</code>, <code>=~</code>, <code>!~</code>. 0.9.0 persists dictionaries and roaring postings to accelerate matcher candidate resolution.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-query">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
           <h3>Rich Aggregation</h3>
-          <p>12 built-in functions: Sum, Min, Max, Avg, First, Last, Count, Median, Range, Variance, StdDev, and None. Downsampling with pagination built in.</p>
+          <p>12 built-in aggregations: Sum, Min, Max, Avg, First, Last, Count, Median, Range, Variance, StdDev, and None. Supports downsampling, pagination, and custom bytes aggregation.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-limits">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <h3>Resource Limits</h3>
-          <p>Memory budget with admission backpressure, series cardinality cap, and WAL size limit. Prevents OOM crashes and unbounded growth.</p>
+          <p>Memory budget with admission backpressure, series cardinality cap, and WAL size limit. 0.9.0 adds incremental shard memory accounting and optional background fail-fast mode.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-cloud">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
           <h3>Container-Aware</h3>
-          <p>Automatic cgroup v1/v2 detection for CPU and memory quotas. Optimal thread pool sizing in Docker, Kubernetes, and other containerized environments.</p>
+          <p>Automatic cgroup v1/v2 CPU quota detection sets sensible worker defaults in containers. Override explicitly with <code>TSINK_MAX_CPUS</code> when needed.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-python">
@@ -343,9 +359,9 @@
             <span class="bench-label">Compression Ratio</span>
             <span class="bench-badge badge-special">Storage</span>
           </div>
-          <div class="bench-value">0.68<span class="bench-unit">bytes/pt</span></div>
-          <div class="bench-bar"><div class="bench-fill bench-fill-special" style="width: 96%"></div></div>
-          <div class="bench-detail">23x compression &mdash; from 16 bytes to 0.68 bytes</div>
+          <div class="bench-value">0.4<span class="bench-unit">bytes/pt</span></div>
+          <div class="bench-bar"><div class="bench-fill bench-fill-special" style="width: 99%"></div></div>
+          <div class="bench-detail">~40x compression &mdash; from 16 bytes to ~0.4 bytes</div>
         </div>
       </div>
     </div>
@@ -371,13 +387,13 @@
             <span class="code-filename">Cargo.toml</span>
           </div>
           <pre><code><span class="comment"># Core library</span>
-tsink = <span class="str">"0.8"</span>
+tsink = <span class="str">"0.9"</span>
 
 <span class="comment"># With PromQL support</span>
-tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str">"promql"</span>] }
+tsink = { version = <span class="str">"0.9"</span>, features = [<span class="str">"promql"</span>] }
 
 <span class="comment"># With async storage</span>
-tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str">"async-storage"</span>] }</code></pre>
+tsink = { version = <span class="str">"0.9"</span>, features = [<span class="str">"async-storage"</span>] }</code></pre>
         </div>
       </div>
 
@@ -445,7 +461,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             <span class="code-filename">persistent_storage.rs</span>
           </div>
           <pre><code><span class="kw">use</span> std::time::Duration;
-<span class="kw">use</span> tsink::{StorageBuilder, WalSyncMode, TimestampPrecision};
+<span class="kw">use</span> tsink::{StorageBuilder, TimestampPrecision, WalReplayMode, WalSyncMode};
 
 <span class="kw">fn</span> <span class="fn">main</span>() -> <span class="ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
     <span class="kw">let</span> storage = StorageBuilder::new()
@@ -459,12 +475,14 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
         .with_memory_limit(<span class="num">1024</span> * <span class="num">1024</span> * <span class="num">1024</span>)                   <span class="comment">// 1 GB</span>
         .with_cardinality_limit(<span class="num">500_000</span>)
         .with_wal_sync_mode(WalSyncMode::Periodic(Duration::from_secs(<span class="num">1</span>)))
+        .with_wal_replay_mode(WalReplayMode::Salvage)
+        .with_background_fail_fast(<span class="kw">true</span>)
         .with_wal_buffer_size(<span class="num">16384</span>)
         .build()?;
 
     <span class="comment">// Data survives restarts. WAL ensures durability on crash.</span>
-    <span class="comment">// Retention auto-cleans data older than 30 days.</span>
-    <span class="comment">// Memory budget prevents OOM with admission backpressure.</span>
+    <span class="comment">// Replay mode controls corruption handling at startup.</span>
+    <span class="comment">// Background fail-fast can stop new ops after worker failures.</span>
 
     storage.close()?;
     <span class="macro">Ok</span>(())
@@ -570,7 +588,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             </div>
             <span class="code-filename">promql_example.rs</span>
           </div>
-          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8", features = ["promql"] }</span>
+          <pre><code><span class="comment">// Enable with: tsink = { version = "0.9", features = ["promql"] }</span>
 <span class="kw">use</span> std::sync::Arc;
 <span class="kw">use</span> tsink::{StorageBuilder, DataPoint, Row};
 <span class="kw">use</span> tsink::promql::Engine;
@@ -615,7 +633,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             </div>
             <span class="code-filename">async_usage.rs</span>
           </div>
-          <pre><code><span class="comment">// Enable with: tsink = { version = "0.8", features = ["async-storage"] }</span>
+          <pre><code><span class="comment">// Enable with: tsink = { version = "0.9", features = ["async-storage"] }</span>
 <span class="kw">use</span> tsink::{AsyncStorageBuilder, DataPoint, Row};
 
 <span class="kw">async fn</span> <span class="fn">run</span>() -> tsink::<span class="ty">Result</span>&lt;()&gt; {
@@ -690,7 +708,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
     <div class="container">
       <div class="section-header">
         <h2>Full PromQL engine.<br>No external dependencies.</h2>
-        <p>Enable with the <code>promql</code> feature flag. Lexer, parser, and evaluator built from scratch.</p>
+        <p>Enable with the <code>promql</code> feature flag. Built-in lexer/parser/evaluator with 20+ functions and 0.9.0 semantic alignment updates.</p>
       </div>
       <div class="promql-grid">
         <div class="promql-category">
@@ -760,7 +778,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             <code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code>
             <code>and</code> <code>or</code> <code>unless</code>
           </div>
-          <p class="promql-note">With <code>on</code>/<code>ignoring</code> vector matching, <code>by</code>/<code>without</code> grouping, and <code>bool</code> modifier.</p>
+          <p class="promql-note">With <code>on</code>/<code>ignoring</code> vector matching, <code>by</code>/<code>without</code> grouping, and <code>bool</code>. 0.9.0 enforces stricter one-to-one vector matching semantics.</p>
         </div>
       </div>
     </div>
@@ -771,7 +789,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
     <div class="container">
       <div class="section-header">
         <h2>Prometheus-compatible<br>server mode.</h2>
-        <p>Run tsink as a standalone HTTP server with remote read/write, TLS, and bearer auth.</p>
+        <p>Run tsink as a standalone HTTP service with remote read/write, PromQL API, TLS, bearer auth, and gated admin snapshot/restore endpoints.</p>
       </div>
       <div class="server-content">
         <div class="server-left">
@@ -784,23 +802,25 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               </div>
               <span class="code-filename">terminal</span>
             </div>
-            <pre><code><span class="comment"># Start the server</span>
+            <pre><code><span class="comment"># Start the server (admin API is opt-in)</span>
 <span class="kw">$</span> cargo run -p tsink-server -- server \
     --listen <span class="num">127.0.0.1:9201</span> \
     --data-path <span class="str">./tsink-data</span> \
     --memory-limit <span class="str">1G</span> \
-    --retention <span class="str">14d</span>
+    --retention <span class="str">14d</span> \
+    --auth-token <span class="str">secret-token</span> \
+    --enable-admin-api \
+    --admin-path-prefix <span class="str">/srv/tsink-admin</span>
 
 <span class="comment"># PromQL instant query</span>
-<span class="kw">$</span> curl <span class="str">'http://localhost:9201/api/v1/query?query=up&amp;time=1700000000'</span>
+<span class="kw">$</span> curl -H <span class="str">'Authorization: Bearer secret-token'</span> \
+    <span class="str">'http://localhost:9201/api/v1/query?query=up&amp;time=1700000000'</span>
 
-<span class="comment"># PromQL range query</span>
-<span class="kw">$</span> curl <span class="str">'http://localhost:9201/api/v1/query_range?query=up&amp;start=1700000000&amp;end=1700000060&amp;step=15s'</span>
-
-<span class="comment"># Ingest Prometheus text format</span>
-<span class="kw">$</span> curl -X POST http://localhost:9201/api/v1/import/prometheus \
-    -H <span class="str">'Content-Type: text/plain'</span> \
-    --data-binary <span class="str">@metrics.txt</span></code></pre>
+<span class="comment"># Create snapshot via admin API</span>
+<span class="kw">$</span> curl -X POST http://localhost:9201/api/v1/admin/snapshot \
+    -H <span class="str">'Authorization: Bearer secret-token'</span> \
+    -H <span class="str">'Content-Type: application/json'</span> \
+    -d <span class="str">'{"path":"/srv/tsink-admin/snap-001"}'</span></code></pre>
           </div>
         </div>
         <div class="server-right">
@@ -853,6 +873,11 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
                 <span class="endpoint-desc">Label names</span>
               </div>
               <div class="endpoint">
+                <span class="endpoint-method get">GET</span>
+                <code>/api/v1/label/&lt;name&gt;/values</code>
+                <span class="endpoint-desc">Values by label</span>
+              </div>
+              <div class="endpoint">
                 <span class="endpoint-method post">POST</span>
                 <code>/api/v1/import/prometheus</code>
                 <span class="endpoint-desc">Text ingestion</span>
@@ -861,6 +886,21 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
                 <span class="endpoint-method get">GET</span>
                 <code>/api/v1/status/tsdb</code>
                 <span class="endpoint-desc">TSDB stats</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method post">POST</span>
+                <code>/api/v1/admin/snapshot</code>
+                <span class="endpoint-desc">Admin snapshot</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method post">POST</span>
+                <code>/api/v1/admin/restore</code>
+                <span class="endpoint-desc">Admin restore</span>
+              </div>
+              <div class="endpoint">
+                <span class="endpoint-method post">POST</span>
+                <code>/api/v1/admin/delete_series</code>
+                <span class="endpoint-desc">Admin delete (stub 501)</span>
               </div>
             </div>
           </div>
@@ -871,15 +911,19 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             </div>
             <div class="server-feature">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>Bearer token authentication</span>
+              <span>Bearer auth (except /healthz, /ready)</span>
+            </div>
+            <div class="server-feature">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <span>Admin API gated by --enable-admin-api + --auth-token</span>
+            </div>
+            <div class="server-feature">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Deep /metrics and /api/v1/status/tsdb internals</span>
             </div>
             <div class="server-feature">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
               <span>Graceful SIGTERM/SIGINT shutdown</span>
-            </div>
-            <div class="server-feature">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span>Configurable retention &amp; precision</span>
             </div>
           </div>
         </div>
@@ -910,7 +954,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
     <div class="container">
       <div class="section-header">
         <h2>How it works under the hood.</h2>
-        <p>LSM-tree architecture with sharded concurrency and dual encoding lanes.</p>
+        <p>LSM-style architecture with sharded concurrency, dual encoding lanes, and a disk-backed global series index.</p>
       </div>
       <div class="arch-diagram">
         <div class="arch-layer arch-layer-app">
@@ -930,7 +974,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
           <div class="arch-boxes">
             <div class="arch-box">Writers<br><small>N threads, sharded locks</small></div>
             <div class="arch-box">Readers<br><small>concurrent, lock-free</small></div>
-            <div class="arch-box">Compactor<br><small>background merges</small></div>
+            <div class="arch-box">Compactor<br><small>background merges + recovery markers</small></div>
           </div>
         </div>
         <div class="arch-arrow">
@@ -950,10 +994,10 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
         <div class="arch-layer arch-layer-durability">
           <div class="arch-layer-label">Storage &amp; Durability</div>
           <div class="arch-boxes">
-            <div class="arch-box">WAL<br><small>CRC32 + fsync</small></div>
+            <div class="arch-box">WAL<br><small>CRC32 + replay policy</small></div>
             <div class="arch-box">Numeric Lane<br><small>Gorilla, delta, RLE</small></div>
-            <div class="arch-box">Blob Lane<br><small>bytes, string</small></div>
-            <div class="arch-box">Series Index<br><small>inverted postings</small></div>
+            <div class="arch-box">Blob Lane<br><small>bytes, string + delta block</small></div>
+            <div class="arch-box">Series Index v2<br><small>persisted roaring postings</small></div>
           </div>
         </div>
       </div>
@@ -964,15 +1008,15 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
         </div>
         <div class="arch-detail-item">
           <strong>Chunks</strong>
-          <span>2048 points per chunk, delta-of-delta timestamps, per-lane encoding</span>
+          <span>2048 points/chunk by default, per-lane encoding, optional zstd payload compression when smaller</span>
         </div>
         <div class="arch-detail-item">
-          <strong>Segment Files</strong>
-          <span>Immutable, CRC32c + XXH64 checksummed: manifest, chunks, index, series, postings</span>
+          <strong>Global Series Index</strong>
+          <span>Persisted dictionaries and postings in <code>series_index.bin</code> accelerate reopen and matcher-based selection</span>
         </div>
         <div class="arch-detail-item">
           <strong>Background Tasks</strong>
-          <span>Flush every 250ms, compact every 5s &mdash; transparent to reads and writes</span>
+          <span>Flush every 250ms, compact every 5s &mdash; with health surfaced via observability snapshot</span>
         </div>
       </div>
     </div>
@@ -983,7 +1027,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
     <div class="container">
       <div class="section-header">
         <h2>Adaptive compression codecs.</h2>
-        <p>The encoder tries all applicable candidates and picks the most compact representation.</p>
+        <p>The encoder picks the most compact lane codec, then optionally wraps chunk payloads with zstd when it reduces size.</p>
       </div>
       <div class="codec-grid">
         <div class="codec-group">
@@ -1029,6 +1073,10 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             <div class="codec-item">
               <code>Delta block</code>
               <span>Blob lane compression (bytes, string)</span>
+            </div>
+            <div class="codec-item">
+              <code>Zstd wrapper (optional)</code>
+              <span>Chunk payload compressed at level 1 when smaller; decoded transparently on reads</span>
             </div>
           </div>
         </div>
@@ -1080,7 +1128,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <span class="api-desc">Downsampling, aggregation, custom bytes aggregation, pagination</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">select_series(&amp;self, selection: &amp;SeriesSelection) -&gt; Result&lt;...&gt;</code>
+              <code class="api-sig">select_series(&amp;self, selection: &amp;SeriesSelection) -&gt; Result&lt;Vec&lt;MetricSeries&gt;&gt;</code>
               <span class="api-desc">Matcher-based series discovery (=, !=, =~, !~)</span>
             </div>
             <div class="api-item">
@@ -1090,6 +1138,18 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             <div class="api-item">
               <code class="api-sig">list_metrics_with_wal(&amp;self) -&gt; Result&lt;Vec&lt;MetricSeries&gt;&gt;</code>
               <span class="api-desc">Like list_metrics, including WAL-only series</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">memory_used(&amp;self) / memory_budget(&amp;self)</code>
+              <span class="api-desc">Inspect current/target memory footprint</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">observability_snapshot(&amp;self) -&gt; StorageObservabilitySnapshot</code>
+              <span class="api-desc">Structured WAL/flush/compaction/query/health internals</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">snapshot(&amp;self, destination) -&gt; Result&lt;()&gt;</code>
+              <span class="api-desc">Create an atomic on-disk snapshot from a live storage</span>
             </div>
             <div class="api-item">
               <code class="api-sig">close(&amp;self) -&gt; Result&lt;()&gt;</code>
@@ -1140,8 +1200,20 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <span class="api-desc">Target points per chunk before flushing (default: 2048)</span>
             </div>
             <div class="api-item">
+              <code class="api-sig">.with_wal_replay_mode(mode) -&gt; Self</code>
+              <span class="api-desc">Choose replay behavior on mid-log corruption (Salvage/Strict)</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">.with_background_fail_fast(bool) -&gt; Self</code>
+              <span class="api-desc">Stop new operations after background worker failures</span>
+            </div>
+            <div class="api-item">
               <code class="api-sig">.build() -&gt; Result&lt;Arc&lt;dyn Storage&gt;&gt;</code>
               <span class="api-desc">Construct the storage engine</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">StorageBuilder::restore_from_snapshot(snapshot, data_path)</code>
+              <span class="api-desc">Atomically restore a data directory from snapshot contents</span>
             </div>
           </div>
         </div>
@@ -1183,6 +1255,10 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <code class="api-sig">Codec / Aggregator traits</code>
               <span class="api-desc">Custom bytes encoding and aggregation logic</span>
             </div>
+            <div class="api-item">
+              <code class="api-sig">StorageObservabilitySnapshot { wal, flush, compaction, query, health }</code>
+              <span class="api-desc">Structured runtime snapshot for diagnostics and monitoring</span>
+            </div>
           </div>
         </div>
 
@@ -1212,8 +1288,8 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <span class="api-desc">Custom aggregation for non-numeric data</span>
             </div>
             <div class="api-item">
-              <code class="api-sig">Aggregation::{ Sum, Min, Max, Avg, First, Last, Count, Median, Range, Variance, StdDev }</code>
-              <span class="api-desc">12 built-in aggregation functions</span>
+              <code class="api-sig">Aggregation::{ None, Sum, Min, Max, Avg, First, Last, Count, Median, Range, Variance, StdDev }</code>
+              <span class="api-desc">12 built-in aggregation functions + passthrough mode</span>
             </div>
             <div class="api-item">
               <code class="api-sig">SeriesSelection / SeriesMatcher</code>
@@ -1244,6 +1320,10 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <span class="api-desc">WAL fsync strategy for durability vs throughput</span>
             </div>
             <div class="api-item">
+              <code class="api-sig">WalReplayMode::{ Salvage, Strict }</code>
+              <span class="api-desc">Startup replay policy when WAL corruption is encountered</span>
+            </div>
+            <div class="api-item">
               <code class="api-sig">TsinkError::{ InvalidTimeRange, WriteTimeout, MemoryBudgetExceeded, CardinalityLimitExceeded, WalSizeLimitExceeded, ValueTypeMismatch, DataCorruption, ... }</code>
               <span class="api-desc">Comprehensive error types for all failure modes</span>
             </div>
@@ -1266,6 +1346,10 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
             <div class="api-item">
               <code class="api-sig">promql::Engine::new(storage) -&gt; Engine</code>
               <span class="api-desc">Create PromQL engine over a storage handle</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">promql::Engine::with_precision(storage, precision)</code>
+              <span class="api-desc">Construct engine for timestamps not expressed in nanoseconds</span>
             </div>
             <div class="api-item">
               <code class="api-sig">engine.instant_query(query, time) -&gt; Result&lt;...&gt;</code>
@@ -1294,12 +1378,20 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <span class="api-desc">Runtime-agnostic async facade with bounded queues</span>
             </div>
             <div class="api-item">
+              <code class="api-sig">.with_wal_replay_mode(mode) / .with_background_fail_fast(bool)</code>
+              <span class="api-desc">Forward durability and fail-fast controls to inner storage builder</span>
+            </div>
+            <div class="api-item">
               <code class="api-sig">async_storage.insert_rows(rows).await</code>
               <span class="api-desc">Async insert via dedicated worker threads</span>
             </div>
             <div class="api-item">
               <code class="api-sig">async_storage.select(metric, labels, start, end).await</code>
               <span class="api-desc">Async query with configurable read workers</span>
+            </div>
+            <div class="api-item">
+              <code class="api-sig">async_storage.snapshot(path).await</code>
+              <span class="api-desc">Create atomic snapshots via async write worker</span>
             </div>
           </div>
         </div>
@@ -1386,6 +1478,11 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <td><span class="default-val">Periodic(1s)</span></td>
             </tr>
             <tr>
+              <td><code>with_wal_replay_mode(mode)</code></td>
+              <td>Replay policy on WAL corruption: <code>Salvage</code> or <code>Strict</code></td>
+              <td><span class="default-val">Salvage</span></td>
+            </tr>
+            <tr>
               <td><code>with_wal_buffer_size(n)</code></td>
               <td>WAL buffer size in bytes</td>
               <td><span class="default-val">4096</span></td>
@@ -1394,6 +1491,11 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
               <td><code>with_wal_size_limit(bytes)</code></td>
               <td>Hard cap on total WAL bytes across all segments</td>
               <td><span class="default-val">Unlimited</span></td>
+            </tr>
+            <tr>
+              <td><code>with_background_fail_fast(bool)</code></td>
+              <td>Stop new operations after background flush/compaction worker failures</td>
+              <td><span class="default-val">false</span></td>
             </tr>
           </tbody>
         </table>
@@ -1406,7 +1508,7 @@ tsink = { version = <span class="str">"0.8"</span>, features = [<span class="str
     <div class="container">
       <div class="cta-card">
         <h2>Ready to embed a time-series engine?</h2>
-        <p>Add tsink to your Rust project. Store millions of data points with sub-byte compression, query with PromQL, or run it as a Prometheus-compatible server.</p>
+        <p>Add tsink to your Rust project. Store millions of points with adaptive compression, snapshot and restore atomically, inspect runtime internals, and query with PromQL or server mode.</p>
         <div class="cta-actions">
           <a href="https://github.com/h2337/tsink" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
             <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
